@@ -1,6 +1,6 @@
 import { Function, FunctionHandler } from '../function';
 import { LocalMemory } from '../local-memory';
-import { IMemory } from '../memory';
+import { IMemory, IReferentialMemory } from '../memory';
 import { ContentPart, Message, ModelMessage, SystemMessage, UserMessage } from '../message';
 import { IChatModel, TextChunkHandler } from '../models';
 import { Schema } from '../schema';
@@ -8,6 +8,20 @@ import { ITemplate } from '../template';
 import { StringTemplate } from '../templates';
 import { WithRequired } from '../utils/types';
 import { IAiPlugin } from './plugin';
+
+type OptionsWithExplicitMemory = {
+  /**
+   * the conversation history
+   */
+  readonly messages?: Message[] | IMemory;
+};
+
+type OptionsWithReferentialMemory = {
+  /**
+   * the conversation history's last referenced message
+   */
+  readonly previousMessageId?: string | IReferentialMemory;
+};
 
 export type ChatPromptOptions<TOptions extends Record<string, any> = Record<string, any>> = {
   /**
@@ -37,12 +51,7 @@ export type ChatPromptOptions<TOptions extends Record<string, any> = Record<stri
    * the `role` of the initial message
    */
   readonly role?: 'system' | 'user';
-
-  /**
-   * the conversation history
-   */
-  readonly messages?: Message[] | IMemory;
-};
+} & (OptionsWithExplicitMemory | OptionsWithReferentialMemory);
 
 export type ChatPromptSendOptions<TOptions extends Record<string, any> = Record<string, any>> = {
   /**

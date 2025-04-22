@@ -40,7 +40,7 @@
   "peerDependencies": {
     "@microsoft/teams.ai": "*",
     "@microsoft/teams.common": "*",
-    "openai": "^4.55.0"
+    "openai": "^4.95.0"
   },
   "devDependencies": {
     "@microsoft/teams.config": "*",
