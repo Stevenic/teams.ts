@@ -54,6 +54,7 @@ export class HttpStream implements IStreamer {
   }
 
   async close() {
+    if (!this.index && !this.queue.length) return;
     if (this._result) return this._result;
 
     while (!this.id || this.queue.length) {
