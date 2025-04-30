@@ -1,6 +1,6 @@
-# Sample: {{name}}
+# Sample: cards
 
-{{description}}
+a demo of dialogs in Teams
 
 ## Prerequisites
 
