@@ -178,13 +178,19 @@ export class ActivityContext<T extends Activity = Activity> implements IActivity
   }
 
   async send(activity: ActivityLike) {
-    return await this._plugin.send(toActivityParams(activity), this.ref);
+    const ref = {
+      ...this.ref,
+      conversation: {
+        ...this.ref.conversation,
+        id: this.stripOutThreadId(this.ref.conversation.id),
+      },
+    };
+    return await this._plugin.send(toActivityParams(activity), ref);
   }
 
   async reply(activity: ActivityLike) {
-    activity = toActivityParams(activity);
-    activity.replyToId = this.activity.id;
-    return this.send(activity);
+    console.log('replying to activity', toActivityParams(activity), this.ref);
+    return await this._plugin.send(toActivityParams(activity), this.ref);
   }
 
   async signin(options?: Partial<SignInOptions>) {
@@ -284,5 +290,13 @@ export class ActivityContext<T extends Activity = Activity> implements IActivity
       signin: this.signin.bind(this),
       signout: this.signout.bind(this),
     };
+  }
+
+  private stripOutThreadId(conversationId: string): string {
+    const parts = conversationId.split(';');
+    if (parts.length > 1) {
+      return parts[0];
+    }
+    return conversationId;
   }
 }
