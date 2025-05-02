@@ -1,6 +1,7 @@
 const eslint = require('@eslint/js');
 const tseslint = require('typescript-eslint');
 const prettierPluginRecommended = require('eslint-plugin-prettier/recommended');
+const prettierConfig = require('eslint-config-prettier/flat');
 const importPlugin = require('eslint-plugin-import');
 
 /** @type {import("eslint").Linter.Config} */
@@ -21,6 +22,7 @@ module.exports = (async () => {
         eslint.configs.recommended,
         prettierPluginRecommended,
         importPlugin.flatConfigs.recommended,
+        prettierConfig,
         ...tseslint.configs.recommended
       ],
       plugins: {
