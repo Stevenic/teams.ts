@@ -1,7 +1,5 @@
 const eslint = require('@eslint/js');
 const tseslint = require('typescript-eslint');
-const prettierPluginRecommended = require('eslint-plugin-prettier/recommended');
-const prettierConfig = require('eslint-config-prettier/flat');
 const importPlugin = require('eslint-plugin-import');
 
 /** @type {import("eslint").Linter.Config} */
@@ -20,9 +18,7 @@ module.exports = (async () => {
     {
       extends: [
         eslint.configs.recommended,
-        prettierPluginRecommended,
         importPlugin.flatConfigs.recommended,
-        prettierConfig,
         ...tseslint.configs.recommended
       ],
       plugins: {
@@ -157,6 +153,9 @@ module.exports = (async () => {
         ],
 
         // stylistic
+        '@stylistic/linebreak-style': ['error', 'unix'],
+        '@stylistic/quotes': ['error', 'single'],
+        '@stylistic/semi': ['error', 'always'],
         '@stylistic/space-before-blocks': 'error',
         '@stylistic/block-spacing': 'error',
         '@stylistic/keyword-spacing': 'error'
