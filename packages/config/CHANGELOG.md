@@ -1,5 +1,11 @@
 # @microsoft/teams.config
 
+## 2.0.0-preview.1
+
+### Patch Changes
+
+- fix cli template versions
+
 ## 2.0.0-preview.0
 
 ### Major Changes

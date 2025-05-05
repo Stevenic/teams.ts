@@ -1,5 +1,16 @@
 # @microsoft/teams.devtools
 
+## 2.0.0-preview.1
+
+### Patch Changes
+
+- fix cli template versions
+- Updated dependencies
+  - @microsoft/teams.api@2.0.0-preview.1
+  - @microsoft/teams.apps@2.0.0-preview.1
+  - @microsoft/teams.cards@2.0.0-preview.1
+  - @microsoft/teams.common@2.0.0-preview.1
+
 ## 2.0.0-preview.0
 
 ### Major Changes

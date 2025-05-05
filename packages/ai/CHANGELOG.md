@@ -1,5 +1,13 @@
 # @microsoft/teams.ai
 
+## 2.0.0-preview.1
+
+### Patch Changes
+
+- fix cli template versions
+- Updated dependencies
+  - @microsoft/teams.common@2.0.0-preview.1
+
 ## 2.0.0-preview.0
 
 ### Major Changes

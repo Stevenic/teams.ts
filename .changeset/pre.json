@@ -30,6 +30,7 @@
     "@tests/tab": "0.0.0"
   },
   "changesets": [
+    "four-bats-enter",
     "giant-swans-build"
   ]
 }
