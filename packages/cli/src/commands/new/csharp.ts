@@ -4,18 +4,21 @@ import path from 'node:path';
 import url from 'node:url';
 
 import { CommandModule } from 'yargs';
+import { z } from 'zod';
 
 import { IContext } from '../../context';
 import { Project } from '../../project';
 
-type Args = {
-  readonly name: string;
-  readonly template: string;
-  readonly ttk?: boolean;
-  readonly start?: boolean;
-};
+const ArgsSchema = z.object({
+  name: z.string(),
+  template: z.string(),
+  ttk: z.string().optional(),
+  start: z.boolean().optional(),
+  clientId: z.string().optional(),
+  clientSecret: z.string().optional(),
+});
 
-export function CSharp(_: IContext): CommandModule<{}, Args> {
+export function CSharp(_: IContext): CommandModule<{}, z.infer<typeof ArgsSchema>> {
   return {
     command: 'csharp <name>',
     aliases: ['cs'],
@@ -51,11 +54,23 @@ export function CSharp(_: IContext): CommandModule<{}, Args> {
           describe: 'start the project',
           default: false,
         })
-        .option('ttk', {
+        .option('toolkit', {
           alias: 'ttk',
-          type: 'boolean',
+          type: 'string',
           describe: 'include Teams Toolkit configuration',
-          default: false,
+          choices: fs.readdirSync(
+            path.resolve(url.fileURLToPath(import.meta.url), '../..', 'configs', 'ttk')
+          ),
+        })
+        .option('client-id', {
+          type: 'string',
+          describe: 'the apps client id (app id)',
+          default: process.env.CLIENT_ID,
+        })
+        .option('client-secret', {
+          type: 'string',
+          describe: 'the apps client secret',
+          default: process.env.CLIENT_SECRET,
         })
         .check(({ name }) => {
           if (fs.existsSync(path.join(process.cwd(), name))) {
@@ -65,7 +80,7 @@ export function CSharp(_: IContext): CommandModule<{}, Args> {
           return true;
         });
     },
-    handler: async ({ name, template, start, ttk }) => {
+    handler: async ({ name, template, start, ttk, clientId, clientSecret }) => {
       const projectDir = path.join(process.cwd(), name);
       const builder = Project.builder()
         .withPath(projectDir)
@@ -75,6 +90,26 @@ export function CSharp(_: IContext): CommandModule<{}, Args> {
 
       if (ttk) {
         builder.addTeamsToolkit('basic');
+      }
+
+      if (clientId) {
+        builder.addEnv('TEAMS_CLIENT_ID', clientId);
+      }
+
+      if (clientSecret) {
+        builder.addEnv('TEAMS_CLIENT_SECRET', clientSecret);
+      }
+
+      if (process.env.OPENAI_API_KEY) {
+        builder.addEnv('OPENAI_API_KEY', process.env.OPENAI_API_KEY);
+      }
+
+      if (process.env.AZURE_OPENAI_API_KEY) {
+        builder.addEnv('OPENAI_API_KEY', process.env.AZURE_OPENAI_API_KEY);
+      }
+
+      if (process.env.AZURE_OPENAI_ENDPOINT) {
+        builder.addEnv('OPENAI_ENDPOINT', process.env.AZURE_OPENAI_ENDPOINT);
       }
 
       const project = builder.build();
