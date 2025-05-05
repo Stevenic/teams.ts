@@ -1,6 +1,6 @@
 import * as attributes from './attributes';
 import { Project, ProjectLanguage } from './project';
-import { IProjectAttribute } from './project-attribute';
+import { IProjectAttribute, IProjectAttributeOperation } from './project-attribute';
 
 export class ProjectBuilder {
   get path() { return this._path; }
@@ -46,6 +46,11 @@ export class ProjectBuilder {
 
   addTeamsToolkit(name: string) {
     this._attributes.push(new attributes.TeamsToolkitAttribute(name));
+    return this;
+  }
+
+  addCustom(...operations: IProjectAttributeOperation[]) {
+    this._attributes.push(new attributes.CustomAttribute(...operations));
     return this;
   }
 

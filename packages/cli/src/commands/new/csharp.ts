@@ -16,6 +16,8 @@ const ArgsSchema = z.object({
   start: z.boolean().optional(),
   clientId: z.string().optional(),
   clientSecret: z.string().optional(),
+  ghUsername: z.string().optional(),
+  ghToken: z.string().optional()
 });
 
 export function CSharp(_: IContext): CommandModule<{}, z.infer<typeof ArgsSchema>> {
@@ -71,6 +73,18 @@ export function CSharp(_: IContext): CommandModule<{}, z.infer<typeof ArgsSchema
           type: 'string',
           describe: 'the apps client secret',
           default: process.env.CLIENT_SECRET,
+        })
+        .option('gh-username', {
+          type: 'string',
+          demandOption: false,
+          describe: 'your github username',
+          default: process.env.GH_USERNAME
+        })
+        .option('gh-token', {
+          type: 'string',
+          demandOption: false,
+          describe: 'your github token with package read permissions to https://github.com/microsoft/teams.net',
+          default: process.env.GH_TOKEN
         })
         .check(({ name }) => {
           if (fs.existsSync(path.join(process.cwd(), name))) {
