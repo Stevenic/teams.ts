@@ -10,6 +10,8 @@ import {
   createLinkUnfurlCard,
   createMessageDetailsCard,
 } from "./card";
+import npath from "path";
+
 const app = new App({
   logger: new ConsoleLogger("@tests/message-extensions", { level: "debug" }),
   plugins: [new DevtoolsPlugin()],
@@ -139,6 +141,58 @@ app.on("message.ext.select-item", async ({ activity, send }) => {
   }
 });
 // :snippet-end: message-ext-select-item
+
+// :snippet-start: message-ext-query-settings-url
+app.on("message.ext.query-settings-url", async ({ activity }) => {
+  // Get user settings from storage if available
+  const userSettings = await app.storage.get(activity.from.id) || { selectedOption: '' }
+  const escapedSelectedOption = encodeURIComponent(userSettings.selectedOption);
+
+  return {
+    composeExtension: {
+      type: "config",
+      suggestedActions: {
+        actions: [
+          {
+            type: "openUrl",
+            title: "Search Settings",
+            // ensure the bot endpoint is set in the environment variables
+            // process.env.BOT_ENDPOINT is not populated by default in the Teams Toolkit setup. 
+            value: `${process.env.BOT_ENDPOINT}/searchSettings?selectedOption=${escapedSelectedOption}`
+          }
+        ]
+      }
+    }
+  };
+});
+// :snippet-end: message-ext-query-settings-url
+
+// :snippet-start: message-ext-setting
+app.on("message.ext.setting", async ({ activity, send }) => {
+  const { state } = activity.value
+  if (state == "CancelledByUser") {
+    return {
+      status: 400
+    }
+  }
+  const selectedOption = state;
+  
+  // Save the selected option to storage
+  await app.storage.set(activity.from.id, { selectedOption })
+  
+  await send(`Selected option: ${selectedOption}`)
+
+  return {
+    status: 200
+  }
+});
+// :snippet-end: message-ext-setting
+
+// :snippet-start: message-ext-serve-html
+app.http.use(`/searchSettings`, async (_, res) => {
+  res.sendFile(npath.join(__dirname, 'searchSettings.html'));
+});
+// :snippet-end: message-ext-serve-html
 
 (async () => {
   await app.start();
