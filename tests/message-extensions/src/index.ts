@@ -128,6 +128,18 @@ app.on("message.ext.query", async ({ activity }) => {
 });
 // :snippet-end: message-ext-query
 
+// :snippet-start: message-ext-select-item
+app.on("message.ext.select-item", async ({ activity, send }) => {
+  const { option } = activity.value;
+
+  await send(`Selected item: ${option}`);
+
+  return {
+    status: 200,
+  }
+});
+// :snippet-end: message-ext-select-item
+
 (async () => {
   await app.start();
 })();
