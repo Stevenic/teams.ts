@@ -171,7 +171,7 @@ export async function createDummyCards(searchQuery: string) {
         //     "option": index,
         //   },
         // },
-      } as ThumbnailCard,
+      } satisfies ThumbnailCard,
     };
   });
 

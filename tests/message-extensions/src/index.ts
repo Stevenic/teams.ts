@@ -10,7 +10,7 @@ import {
   createLinkUnfurlCard,
   createMessageDetailsCard,
 } from "./card";
-import npath from "path";
+import path from "path";
 
 const app = new App({
   logger: new ConsoleLogger("@tests/message-extensions", { level: "debug" }),
@@ -158,7 +158,7 @@ app.on("message.ext.query-settings-url", async ({ activity }) => {
             title: "Settings",
             // ensure the bot endpoint is set in the environment variables
             // process.env.BOT_ENDPOINT is not populated by default in the Teams Toolkit setup. 
-            value: `${process.env.BOT_ENDPOINT}/settings?selectedOption=${escapedSelectedOption}`
+            value: `${process.env.BOT_ENDPOINT}/tabs/settings?selectedOption=${escapedSelectedOption}`
           }
         ]
       }
@@ -189,9 +189,7 @@ app.on("message.ext.setting", async ({ activity, send }) => {
 // :snippet-end: message-ext-setting
 
 // :snippet-start: message-ext-serve-html
-app.http.use(`/settings`, async (_, res) => {
-  res.sendFile(npath.join(__dirname, 'settings.html'));
-});
+app.tab(`settings`, path.resolve(__dirname));
 // :snippet-end: message-ext-serve-html
 
 (async () => {
