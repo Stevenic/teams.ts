@@ -3,6 +3,7 @@ import express from 'express';
 import { Dependency, EmitPluginEvent, Event, HttpPlugin, IPlugin, Logger, Plugin, Storage } from '@microsoft/teams.apps';
 import { ILogger, IStorage } from '@microsoft/teams.common';
 
+import { AgentManager, AgentManagerOptions } from '../client/agent-manager';
 import * as schema from '../common/schema';
 
 import { isTaskRequest } from './middleware/isTaskRequest';
@@ -30,6 +31,12 @@ interface IA2APluginOptions {
      * or that the agent sends. If not provided, the App's storage will be used.
      */
     taskStore?: TaskStore;
+
+    /**
+     * The agent manager options that can be used to configure the agent manager.
+     * @default {}
+     */
+    managerOptions?: AgentManagerOptions;
 }
 
 @Plugin({
@@ -37,10 +44,9 @@ interface IA2APluginOptions {
     description: 'A2A Plugin',
     version: '1.0.0',
 })
-export class A2APlugin implements IPlugin<A2AEvents> {
+export class A2APlugin implements IPlugin {
     @Event('custom')
     protected readonly emit!: EmitPluginEvent<A2AEvents>;
-
 
     @Dependency()
     protected readonly _httpPlugin!: HttpPlugin;
@@ -56,6 +62,10 @@ export class A2APlugin implements IPlugin<A2AEvents> {
     protected _path: string;
     protected _taskManager!: TaskManager;
     protected _taskStore!: TaskStore;
+    protected _clientManager!: AgentManager;
+    public get clientManager(): AgentManager {
+        return this._clientManager;
+    }
 
     constructor(options: IA2APluginOptions) {
         this._card = options.agentCard;
@@ -63,6 +73,7 @@ export class A2APlugin implements IPlugin<A2AEvents> {
             this._logger.warn('A2APlugin does not support streaming yet, but the agent card indicates it does');
         }
         this._path = options.path || '/a2a';
+        this._clientManager = new AgentManager(options.managerOptions);
         if (options.taskStore) {
             this._taskStore = options.taskStore;
         }
