@@ -2,6 +2,7 @@ using Microsoft.Teams.Api.Activities;
 using Microsoft.Teams.Apps;
 using Microsoft.Teams.Apps.Annotations;
 using Microsoft.Teams.Apps.Activities;
+using Microsoft.Teams.Apps.Plugins;
 
 namespace Echo;
 
@@ -12,5 +13,18 @@ public class MainController
     public async Task OnMessage([Context] MessageActivity activity, [Context] IContext.Client client)
     {
         await client.Send($"you said \"{activity.Text}\"");
+    }
+
+    [Activity]
+    public async Task OnActivity(IContext<Activity> context, [Context] IContext.Next next)
+    {
+        context.Log.Info(context.AppId);
+        await next();
+    }
+
+    [Microsoft.Teams.Apps.Events.Event("activity")]
+    public void OnEvent(IPlugin plugin, Microsoft.Teams.Apps.Events.Event @event)
+    {
+        Console.WriteLine("!!HIT!!");
     }
 }

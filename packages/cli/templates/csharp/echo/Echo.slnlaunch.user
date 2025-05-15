@@ -1,0 +1,12 @@
+[
+  {
+    "Name": "DevTools (browser)",
+    "Projects": [
+      {
+        "Path": "Echo\\Echo.csproj",
+        "Action": "Start",
+        "DebugTarget": "http"
+      }
+    ]
+  }
+]

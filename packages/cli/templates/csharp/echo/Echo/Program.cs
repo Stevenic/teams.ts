@@ -9,5 +9,12 @@ builder.AddTeamsDevTools();
 builder.Services.AddTransient<MainController>();
 
 var app = builder.Build();
+
+if (app.Environment.IsDevelopment())
+{
+    app.MapOpenApi();
+}
+
+app.UseHttpsRedirection();
 app.UseTeams();
 app.Run();
