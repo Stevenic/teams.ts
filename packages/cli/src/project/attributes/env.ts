@@ -23,6 +23,8 @@ export class EnvAttribute implements IProjectAttribute {
 
   async csharp(targetDir: string) {
     const changeCase = await import('change-case');
+    // Ensures keys like "teams.clientId" are converted to "Teams.ClientId"
+    // It follows the C# convention for environment variables
     const key = this._key.split('.')
       .map(part => changeCase.pascalCase(part))
       .join('.');
