@@ -33,10 +33,7 @@ export function CSharp(_: IContext): CommandModule<{}, z.infer<typeof ArgsSchema
           describe: 'the apps name',
           demandOption: true,
           coerce: (name: string) => {
-            return changeCase.pascalCase(
-              name.trim(),
-              { delimiter: '.' }
-            );
+            return changeCase.pascalCase(name.trim());
           },
         })
         .option('template', {
