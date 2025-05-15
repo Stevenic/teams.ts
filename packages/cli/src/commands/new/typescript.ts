@@ -22,7 +22,7 @@ const ArgsSchema = z.object({
 
 export function Typescript(_: IContext): CommandModule<{}, z.infer<typeof ArgsSchema>> {
   return {
-    command: ['$0 <name>', 'typescript <name>'],
+    command: ['typescript <name>'],
     aliases: 'ts',
     describe: 'create a new typescript app project',
     builder: (b) => {

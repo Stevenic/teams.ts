@@ -11,13 +11,9 @@ export function New(context: IContext): CommandModule<{}, {}> {
     aliases: 'n',
     describe: 'create a new app project',
     builder: (b) => {
-      let args = b.command(Typescript(context));
-
-      if (process.env.TEAMS_CLI_ENV === 'development') {
-        args = args.command(CSharp(context));
-      }
-
-      return args;
+      return b
+        .command(Typescript(context))
+        .command(CSharp(context));
     },
     handler: () => { },
   };

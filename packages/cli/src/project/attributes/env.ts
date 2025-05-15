@@ -23,9 +23,9 @@ export class EnvAttribute implements IProjectAttribute {
 
   async csharp(targetDir: string) {
     const changeCase = await import('change-case');
-    const key = changeCase.pascalCase(this._key, {
-      delimiter: '.'
-    });
+    const key = this._key.split('.')
+      .map(part => changeCase.pascalCase(part))
+      .join('.');
 
     return new Compound(new FileJsonSet(targetDir, this._filename, key, this._value));
   }

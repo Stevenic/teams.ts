@@ -22,7 +22,7 @@ export function CSharp(_: IContext): CommandModule<{}, z.infer<typeof ArgsSchema
   return {
     command: 'csharp <name>',
     aliases: ['cs'],
-    describe: '⚠️BETA⚠️ create a new csharp app project',
+    describe: 'create a new csharp app project',
     builder: async (b) => {
       const changeCase = await import('change-case');
 
@@ -89,27 +89,29 @@ export function CSharp(_: IContext): CommandModule<{}, z.infer<typeof ArgsSchema
         .addTemplate(template);
 
       if (ttk) {
-        builder.addTeamsToolkit('basic');
+        builder.addTeamsToolkit(ttk);
       }
 
+      const appSettingsPath = `${name}/appsettings.Development.json`;
+
       if (clientId) {
-        builder.addEnv('TEAMS_CLIENT_ID', clientId);
+        builder.addEnv('Teams.ClientId', clientId, appSettingsPath);
       }
 
       if (clientSecret) {
-        builder.addEnv('TEAMS_CLIENT_SECRET', clientSecret);
+        builder.addEnv('Teams.ClientSecret', clientSecret, appSettingsPath);
       }
 
       if (process.env.OPENAI_API_KEY) {
-        builder.addEnv('OPENAI_API_KEY', process.env.OPENAI_API_KEY);
+        builder.addEnv('OPENAI_API_KEY', process.env.OPENAI_API_KEY, appSettingsPath);
       }
 
       if (process.env.AZURE_OPENAI_API_KEY) {
-        builder.addEnv('OPENAI_API_KEY', process.env.AZURE_OPENAI_API_KEY);
+        builder.addEnv('OPENAI_API_KEY', process.env.AZURE_OPENAI_API_KEY, appSettingsPath);
       }
 
       if (process.env.AZURE_OPENAI_ENDPOINT) {
-        builder.addEnv('OPENAI_ENDPOINT', process.env.AZURE_OPENAI_ENDPOINT);
+        builder.addEnv('OPENAI_ENDPOINT', process.env.AZURE_OPENAI_ENDPOINT, appSettingsPath);
       }
 
       const project = builder.build();
@@ -117,14 +119,14 @@ export function CSharp(_: IContext): CommandModule<{}, z.infer<typeof ArgsSchema
       console.log(`✅ App "${name}" created successfully at ${projectDir}`);
 
       if (start) {
-        console.log(`cd ${name} && dotnet run`);
-        cp.spawnSync(`cd ${name} && dotnet run`, {
+        console.log(`cd ${name}/${name} && dotnet run`);
+        cp.spawnSync(`cd ${name}/${name} && dotnet run`, {
           stdio: 'inherit',
           shell: true,
         });
       } else {
         console.log('Next steps to start the app:');
-        console.log(`cd ${name} && dotnet run`);
+        console.log(`cd ${name}/${name} && dotnet run`);
       }
     },
   };
