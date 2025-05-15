@@ -19,7 +19,7 @@ export class TeamsToolkitAttribute implements IProjectAttribute {
   typescript(targetDir: string) {
     return new Compound(
       new Copy(
-        path.resolve(url.fileURLToPath(import.meta.url), '../..', 'configs', 'ttk', this.name),
+        path.resolve(url.fileURLToPath(import.meta.url), '../..', 'configs', 'ttk', this.name, 'typescript'),
         targetDir
       ),
       new FileJsonSet(targetDir, 'package.json', 'devDependencies.env-cmd', 'latest'),

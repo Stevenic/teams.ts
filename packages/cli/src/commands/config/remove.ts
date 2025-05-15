@@ -25,9 +25,14 @@ export function Remove(_: IContext): CommandModule<{}, Args> {
         demandOption: true,
         choices: fs
           .readdirSync(configsPath)
-          .map((name) =>
-            fs.readdirSync(path.join(configsPath, name)).map((type) => `${name}.${type}`)
-          )
+          .map((name) => {
+            const language = Project.load().language;
+            const ttkPath = path.join(configsPath, name);
+
+            return fs.readdirSync(ttkPath)
+              .filter((type) => fs.existsSync(path.join(ttkPath, type, language)))
+              .map((type) => `${name}.${type}`);
+          })
           .flat(),
       });
     },

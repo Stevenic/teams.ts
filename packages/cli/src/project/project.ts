@@ -49,12 +49,12 @@ export class Project implements IProject {
   static load() {
     const language = fs.existsSync(path.join(process.cwd(), 'package.json'))
       ? 'typescript'
-      : fs.existsSync(path.join(process.cwd(), 'appsettings.json'))
-        ? 'csharp'
+      : fs.readdirSync(process.cwd()).some(file => file.endsWith('.sln'))
+      ? 'csharp'
         : undefined;
 
     if (!language) {
-      throw new Error('invalid project');
+      throw new Error('invalid project. Directory should contain a package.json (typescript) or .sln (csharp) file.');
     }
 
     return new ProjectBuilder()
