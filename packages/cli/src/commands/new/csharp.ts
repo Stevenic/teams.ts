@@ -8,6 +8,7 @@ import { z } from 'zod';
 
 import { IContext } from '../../context';
 import { Project } from '../../project';
+import { Settings } from '../../settings';
 
 const ArgsSchema = z.object({
   name: z.string(),
@@ -19,8 +20,10 @@ const ArgsSchema = z.object({
 });
 
 export function CSharp(_: IContext): CommandModule<{}, z.infer<typeof ArgsSchema>> {
+  const isCSharp = Settings.load().language == 'csharp';
+
   return {
-    command: 'csharp <name>',
+    command: ['csharp <name>', ...(isCSharp ? ['$0 <name>'] : [])],
     aliases: ['cs'],
     describe: 'create a new csharp app project',
     builder: async (b) => {

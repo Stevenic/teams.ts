@@ -10,6 +10,7 @@ import { String } from '@microsoft/teams.common';
 
 import { IContext } from '../../context';
 import { Project } from '../../project';
+import { Settings } from '../../settings';
 
 const ArgsSchema = z.object({
   name: z.string(),
@@ -21,8 +22,10 @@ const ArgsSchema = z.object({
 });
 
 export function Typescript(_: IContext): CommandModule<{}, z.infer<typeof ArgsSchema>> {
+  const isTypescript = Settings.load().language == 'typescript';
+
   return {
-    command: ['typescript <name>'],
+    command: ['typescript <name>', ...(isTypescript ? ['$0 <name>'] : [])],
     aliases: 'ts',
     describe: 'create a new typescript app project',
     builder: (b) => {
