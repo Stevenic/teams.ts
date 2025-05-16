@@ -1,0 +1,42 @@
+[
+  {
+    "Name": "Microsoft Teams (browser)",
+    "Projects": [
+      {
+        "Path": "Echo\\TeamsApp\\TeamsApp.ttkproj",
+        "Action": "StartWithoutDebugging",
+        "DebugTarget": "Microsoft Teams (browser)"
+      },
+      {
+        "Path": "Echo\\Echo.csproj",
+        "Action": "Start",
+        "DebugTarget": "Start Project"
+      }
+    ]
+  },
+  {
+    "Name": "Microsoft Teams (browser) (skip update Teams App)",
+    "Projects": [
+      {
+        "Path": "Echo\\TeamsApp\\TeamsApp.ttkproj",
+        "Action": "StartWithoutDebugging",
+        "DebugTarget": "Microsoft Teams (browser) (skip update Teams App)"
+      },
+      {
+        "Path": "Echo\\Echo.csproj",
+        "Action": "Start",
+        "DebugTarget": "Start Project"
+      }
+    ]
+  },
+  {
+    "Name": "DevTools (browser)",
+    "Projects": [
+      {
+        "Path": "Echo\\Echo.csproj",
+        "Action": "Start",
+        "DebugTarget": "http"
+      }
+    ]
+  }
+]
