@@ -27,18 +27,14 @@ export class FileUpdate implements IProjectAttributeOperation {
       throw new Error(`"${filePath}" does not exist`);
     }
 
-    let content: string;
+    let content = '';
     if (this._content) {
       if (typeof this._content === 'function') {
-        // read file content
         const fileContent = fs.readFileSync(filePath, 'utf8');
-        // call the function with the content
         content = this._content(fileContent);
       } else {
         content = this._content;
       }
-    } else {
-      content = '';
     }
 
     process.stdout.write(new String().cyan(`updating "${relativeFilePath}"...`).toString());
