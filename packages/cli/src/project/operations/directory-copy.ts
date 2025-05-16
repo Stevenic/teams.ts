@@ -42,7 +42,7 @@ export class DirectoryCopy implements IProjectAttributeOperation {
 
       let toItem = item;
       if (isHandlebars) {
-        toItem = HandlebarsTemplate.render(item, { strict: true }, project);
+        toItem = await HandlebarsTemplate.render(item, { strict: true }, project);
         toItem = toItem.replace('.hbs', '');
       }
 
@@ -94,7 +94,7 @@ export class DirectoryCopy implements IProjectAttributeOperation {
 
       let toItem = item;
       if (isHandlebars) {
-        toItem = HandlebarsTemplate.render(item, { strict: true }, project);
+        toItem = await HandlebarsTemplate.render(item, { strict: true }, project);
         toItem = toItem.replace('.hbs', '');
       }
 
