@@ -14,17 +14,4 @@ public class MainController
     {
         await client.Send($"you said \"{activity.Text}\"");
     }
-
-    [Activity]
-    public async Task OnActivity(IContext<Activity> context, [Context] IContext.Next next)
-    {
-        context.Log.Info(context.AppId);
-        await next();
-    }
-
-    [Microsoft.Teams.Apps.Events.Event("activity")]
-    public void OnEvent(IPlugin plugin, Microsoft.Teams.Apps.Events.Event @event)
-    {
-        Console.WriteLine("!!HIT!!");
-    }
 }
