@@ -63,7 +63,7 @@ export function CSharp(_: IContext): CommandModule<{}, z.infer<typeof ArgsSchema
           describe: 'include Teams Toolkit configuration',
           choices: fs.readdirSync(ttkPath)
             .filter((type) => fs.existsSync(path.join(ttkPath, type, 'csharp')))
-            .map((type) => `ttk.${type}`)
+            .map((type) => `${type}`)
             .flat()
         })
         .option('client-id', {
