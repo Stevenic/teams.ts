@@ -80,7 +80,7 @@ export class TeamsToolkitAttribute implements IProjectAttribute {
     }
 
     // Get .sln file name
-    const slnFileName = path.basename(slnFile);
+    const slnFileName = path.basename(slnFile, '.sln');
 
     // Get the .slnlaunch.user file in the target directory
     let launchUserFile = fs.readdirSync(targetDir).find((file) => file.endsWith('.slnlaunch.user'));
