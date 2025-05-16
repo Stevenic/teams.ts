@@ -23,6 +23,7 @@ const ArgsSchema = z.object({
 
 export function Typescript(_: IContext): CommandModule<{}, z.infer<typeof ArgsSchema>> {
   const isTypescript = Settings.load().language == 'typescript';
+  const ttkPath = path.resolve(url.fileURLToPath(import.meta.url), '../..', 'configs', 'ttk');
 
   return {
     command: ['typescript <name>', ...(isTypescript ? ['$0 <name>'] : [])],
@@ -63,9 +64,10 @@ export function Typescript(_: IContext): CommandModule<{}, z.infer<typeof ArgsSc
           alias: 'ttk',
           type: 'string',
           describe: 'include Teams Toolkit configuration',
-          choices: fs.readdirSync(
-            path.resolve(url.fileURLToPath(import.meta.url), '../..', 'configs', 'ttk')
-          ),
+          choices: fs.readdirSync(ttkPath)
+          .filter((type) => fs.existsSync(path.join(ttkPath, type, 'typescript')))
+          .map((type) => `ttk.${type}`)
+          .flat()
         })
         .option('client-id', {
           type: 'string',

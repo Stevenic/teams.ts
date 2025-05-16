@@ -21,6 +21,7 @@ const ArgsSchema = z.object({
 
 export function CSharp(_: IContext): CommandModule<{}, z.infer<typeof ArgsSchema>> {
   const isCSharp = Settings.load().language == 'csharp';
+  const ttkPath = path.resolve(url.fileURLToPath(import.meta.url), '../..', 'configs', 'ttk');
 
   return {
     command: ['csharp <name>', ...(isCSharp ? ['$0 <name>'] : [])],
@@ -58,9 +59,10 @@ export function CSharp(_: IContext): CommandModule<{}, z.infer<typeof ArgsSchema
           alias: 'ttk',
           type: 'string',
           describe: 'include Teams Toolkit configuration',
-          choices: fs.readdirSync(
-            path.resolve(url.fileURLToPath(import.meta.url), '../..', 'configs', 'ttk')
-          ),
+          choices: fs.readdirSync(ttkPath)
+            .filter((type) => fs.existsSync(path.join(ttkPath, type, 'csharp')))
+            .map((type) => `ttk.${type}`)
+            .flat()
         })
         .option('client-id', {
           type: 'string',
