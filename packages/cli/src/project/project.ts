@@ -54,7 +54,7 @@ export class Project implements IProject {
         : undefined;
 
     if (!language) {
-      throw new Error('invalid project. Directory should contain a package.json (typescript) or .sln (csharp) file.');
+      throw new Error('Invalid project. Directory should contain a package.json (typescript) or .sln (csharp) file.');
     }
 
     return new ProjectBuilder()
