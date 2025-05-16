@@ -11,9 +11,9 @@ export class FileUpdate implements IProjectAttributeOperation {
 
   private _path: string;
   private _filename: string;
-  private _content?: string;
+  private _content?: string | ((content: string) => string);
 
-  constructor(path: string, filename: string, content?: string) {
+  constructor(path: string, filename: string, content?: string | ((content: string) => string)) {
     this._path = path;
     this._filename = filename;
     this._content = content;
@@ -27,8 +27,16 @@ export class FileUpdate implements IProjectAttributeOperation {
       throw new Error(`"${filePath}" does not exist`);
     }
 
+    let content = this._content
+    if (this._content && typeof this._content === 'function') {
+      // read file content
+      const fileContent = fs.readFileSync(filePath, 'utf8');
+      // call the function with the content
+      content = this._content(fileContent);
+    }
+
     process.stdout.write(new String().cyan(`updating "${relativeFilePath}"...`).toString());
-    fs.writeFileSync(filePath, this._content || '', 'utf8');
+    fs.writeFileSync(filePath, content || '', 'utf8');
     process.stdout.write('✔️\n');
   }
 
