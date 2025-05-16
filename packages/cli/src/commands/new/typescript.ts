@@ -66,7 +66,6 @@ export function Typescript(_: IContext): CommandModule<{}, z.infer<typeof ArgsSc
           describe: 'include Teams Toolkit configuration',
           choices: fs.readdirSync(ttkPath)
           .filter((type) => fs.existsSync(path.join(ttkPath, type, 'typescript')))
-          .map((type) => `${type}`)
           .flat()
         })
         .option('client-id', {

@@ -34,7 +34,7 @@ export class FileTemplateHandlebars implements IProjectAttributeOperation {
         .toString()
     );
 
-    const rendered = HandlebarsTemplate.render(content, { strict: true }, project);
+    const rendered = await HandlebarsTemplate.render(content, { strict: true }, project);
 
     fs.writeFileSync(this._to, rendered, 'utf8');
     process.stdout.write('✔️\n');

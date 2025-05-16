@@ -13,7 +13,7 @@ export function New(context: IContext): CommandModule<{}, {}> {
   return {
     command: 'new',
     aliases: 'n',
-    describe: `create a new app project (default: ${language}). You can update language with the "set-lang" command. `,
+    describe: `create a new app project${language ? ` in ${language}` : ''}. You can update language with the "set-lang" command.`,
     builder: (b) => {
       return b
         .command(Typescript(context))

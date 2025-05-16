@@ -24,13 +24,13 @@ export function SetLang(_: IContext): CommandModule<{}, z.infer<typeof ArgsSchem
         .positional('language', {
           describe: 'programming language to use (typescript or csharp)',
           type: 'string',
-          choices: ['ts', 'cs'],
+          choices: ['ts', 'cs', 'typescript', 'csharp'],
           demandOption: true,
         });
     },
     handler: async ({ language }) => {
       const settings = Settings.load();
-      settings.language = language === 'ts' ? 'typescript' : 'csharp';
+      settings.language = ['ts', 'typescript'].includes(language) ? 'typescript' : 'csharp';
       settings.save();
       console.log(`Language set to ${settings.language}`);
     },
