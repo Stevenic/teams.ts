@@ -26,7 +26,8 @@ export function Add(_: IContext): CommandModule<{}, Args> {
         choices: fs
           .readdirSync(configsPath)
           .map((name) => {
-            const language = Project.load().language;
+            // If no language is detected, default to configs available for typescript
+            const language = Project.detectLanguage() ?? 'typescript';
             const ttkPath = path.join(configsPath, name);
 
             return fs.readdirSync(ttkPath)
