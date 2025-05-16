@@ -35,15 +35,15 @@ provision:
       target: ../appsettings.Development.json
       content:
         Teams:
-          ClientId: ${{BOT_ID}}
-          ClientSecret: ${{SECRET_BOT_PASSWORD}}
+          ClientId: $\{{BOT_ID}}
+          ClientSecret: $\{{SECRET_BOT_PASSWORD}}
 
   # Create or update the bot registration on dev.botframework.com
   - uses: botFramework/create
     with:
-      botId: ${{BOT_ID}}
+      botId: $\{{BOT_ID}}
       name: {{ toPascalCase name }}
-      messagingEndpoint: ${{BOT_ENDPOINT}}/api/messages
+      messagingEndpoint: $\{{BOT_ENDPOINT}}/api/messages
       description: ""
       channels:
         - name: msteams
@@ -58,13 +58,13 @@ provision:
     with:
       # Path to manifest template
       manifestPath: ./appPackage/manifest.json
-      outputZipPath: ./appPackage/build/appPackage.${{TEAMSFX_ENV}}.zip
+      outputZipPath: ./appPackage/build/appPackage.$\{{TEAMSFX_ENV}}.zip
       outputFolder: ./appPackage/build
   # Validate app package using validation rules
   - uses: teamsApp/validateAppPackage
     with:
       # Relative path to this file. This is the path for built zip file.
-      appPackagePath: ./appPackage/build/appPackage.${{TEAMSFX_ENV}}.zip
+      appPackagePath: ./appPackage/build/appPackage.$\{{TEAMSFX_ENV}}.zip
 
   # Apply the Teams app manifest to an existing Teams app in
   # Teams Developer Portal.
@@ -72,5 +72,5 @@ provision:
   - uses: teamsApp/update
     with:
       # Relative path to this file. This is the path for built zip file.
-      appPackagePath: ./appPackage/build/appPackage.${{TEAMSFX_ENV}}.zip
+      appPackagePath: ./appPackage/build/appPackage.$\{{TEAMSFX_ENV}}.zip
 
