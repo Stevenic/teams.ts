@@ -38,14 +38,14 @@ export const handleStructuredOutput = async (
   const functionCallArgs = result.function_calls?.[0].arguments;
   await send(`The LLM responed with the following structured output: ${JSON.stringify(functionCallArgs, undefined, 2)}. And the raw response was: ${JSON.stringify(result.raw, undefined, 2)}`);
 
-  const firstCall = result.function_calls?.[0]
+  const firstCall = result.function_calls?.[0];
   if (firstCall?.name === 'pong') {
     console.log('ponging');
     messages.push({
       role: 'function',
       function_id: firstCall.id,
       content: 'pong',
-    })
+    });
     const result = await prompt.send('What should we do next?', { messages, disableAutomaticFunctionCalling: true });
     const functionCallArgs = result.function_calls?.[0].arguments;
     await send(`The LLM responed with the following structured output: ${JSON.stringify(functionCallArgs, undefined, 2)}. And the raw response was: ${JSON.stringify(result.raw, undefined, 2)}`);

@@ -9,6 +9,7 @@ import { Schema } from '../schema';
 import { ITemplate } from '../template';
 import { StringTemplate } from '../templates';
 import { WithRequired } from '../utils/types';
+
 import { ChatPromptOptions, ChatPromptPlugin, ChatPromptSendOptions, IChatPrompt } from './chat-types';
 
 /**

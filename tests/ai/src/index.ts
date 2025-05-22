@@ -31,7 +31,7 @@ console.log({
   endpoint: process.env.AZURE_OPENAI_ENDPOINT,
   apiVersion: process.env.AZURE_OPENAI_API_VERSION,
   model: process.env.AZURE_OPENAI_MODEL_DEPLOYMENT_NAME,
-})
+});
 
 const model = new OpenAIChatModel({
   apiKey: process.env.OPENAI_API_KEY,
