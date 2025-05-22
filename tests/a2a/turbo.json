@@ -12,6 +12,7 @@
         "@microsoft/teams.common#build",
         "@microsoft/teams.dev#build",
         "@microsoft/teams.graph#build",
+        "@microsoft/teams.ai#build",
         "@microsoft/teams.openai#build",
         "@microsoft/teams.a2a#build"
       ]

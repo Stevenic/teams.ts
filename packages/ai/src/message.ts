@@ -8,12 +8,13 @@ export type UserMessage = {
   content: string | ContentPart[];
 };
 
-export type ModelMessage = {
+export type ModelMessage<TRaw extends Record<string, any> = Record<string, any>> = {
   role: 'model';
   audio?: MessageAudio;
   content?: string;
   context?: MessageContext;
   function_calls?: FunctionCall[];
+  raw?: TRaw;
 };
 
 export type SystemMessage = {
