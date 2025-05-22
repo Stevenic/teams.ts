@@ -30,17 +30,23 @@ export type ChatSendOptions<TOptions = Record<string, any>> = {
    * stream chunk
    */
   readonly onChunk?: TextChunkHandler;
+
+  /**
+   * disable automatic function calling
+   * @default false
+   */
+  readonly disableAutomaticFunctionCalling?: boolean;
 };
 
 /**
  * a conversational model for sending and receiving
  * messages
  */
-export interface IChatModel<TOptions = Record<string, any>> {
+export interface IChatModel<TOptions = Record<string, any>, TRawReturnType extends Record<string, any> = Record<string, any>> {
   /**
    * send a message to the model
    * @param input the message to send
    * @param options the send options
    */
-  send(input: Message, options?: ChatSendOptions<TOptions>): Promise<ModelMessage>;
+  send(input: Message, options?: ChatSendOptions<TOptions>): Promise<ModelMessage<TRawReturnType>>;
 }
