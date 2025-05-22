@@ -2,7 +2,8 @@ import { ContentPart, Message } from '../message';
 import { IChatModel } from '../models';
 import { Schema } from '../schema';
 
-import { ChatPrompt, ChatPromptPlugin } from './chat';
+import { ChatPrompt } from './chat';
+import { ChatPromptPlugin } from './chat-types';
 
 // Mock implementations
 const mockChatModel: IChatModel<any> = {
@@ -28,7 +29,7 @@ const mockPlugin: ChatPromptPlugin<'test', TestPluginArgs> = {
 type MockPlugins = readonly [typeof mockPlugin];
 
 describe('ChatPrompt', () => {
-  let chatPrompt: ChatPrompt<any, MockPlugins>;
+  let chatPrompt: ChatPrompt<any, any, MockPlugins>;
   const mockPlugins: MockPlugins = [mockPlugin] as const;
 
   beforeEach(() => {
