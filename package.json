@@ -28,19 +28,23 @@
     "bots"
   ],
   "scripts": {
-    "clean": "npx turbo clean",
     "build": "npx turbo build",
+    "build:external": "npx turbo build --filter=./external/*",
     "build:packages": "npx turbo build --filter=./packages/*",
     "build:tests": "npx turbo build --filter=./tests/*",
-    "build:external": "npx turbo build --filter=./external/*",
+    "clean": "npx turbo clean",
     "dev": "npx turbo dev",
-    "lint": "npx turbo lint --concurrency=100%",
     "lint:fix": "npx turbo lint:fix --concurrency=100%",
+    "lint": "npx turbo lint --concurrency=100%",
+    "ship:pre": "node ./scripts/pre-release.js",
+    "ship:tags": "node ./scripts/release-tags.js",
     "test": "npx turbo test --concurrency=100%",
     "validate:snippets": "node ./scripts/validate-snippets.js"
   },
   "devDependencies": {
     "@changesets/cli": "latest",
+    "@eslint/js": "^9.25.1",
+    "eslint": "^9.25.1",
     "@turbo/gen": "^2.4.4",
     "bluehawk": "^1.6.0",
     "turbo": "^2.4.0",
