@@ -3,12 +3,13 @@ import { ILogger } from '@microsoft/teams.common';
 export type RetryOptions = {
   /**
    * the max number of retry attempts
-   * @default 3
+   * @default 5
    */
   readonly max?: number;
 
   /**
    * the delay in ms per retry
+   * @default 500ms
    */
   readonly delay?: number;
 

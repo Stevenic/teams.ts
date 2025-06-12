@@ -1,5 +1,13 @@
 # @microsoft/teams.graph
 
+## 2.0.0-preview.5
+
+### Patch Changes
+
+- streaming bug fix
+- Updated dependencies
+  - @microsoft/teams.common@2.0.0-preview.5
+
 ## 2.0.0-preview.4
 
 ### Patch Changes

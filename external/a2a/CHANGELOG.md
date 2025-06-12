@@ -1,5 +1,15 @@
 # @microsoft/teams.a2a
 
+## 2.0.0-preview.5
+
+### Patch Changes
+
+- streaming bug fix
+- Updated dependencies
+  - @microsoft/teams.apps@2.0.0-preview.5
+  - @microsoft/teams.ai@2.0.0-preview.5
+  - @microsoft/teams.common@2.0.0-preview.5
+
 ## 2.0.0-preview.4
 
 ### Patch Changes
