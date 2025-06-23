@@ -8,12 +8,14 @@ import {
   ActivityParams,
   Client,
   ConversationReference,
+  Credentials,
   IToken,
-  JsonWebToken,
+  JsonWebToken
 } from '@microsoft/teams.api';
 import { ILogger } from '@microsoft/teams.common';
 import * as $http from '@microsoft/teams.common/http';
 
+import { BotTokenValidator, TokenAuthenticationError, TokenClaimsError, TokenFormatError, TokenInfrastructureError, TokenValidationError } from '@microsoft/teams.auth';
 import pkg from '../../../package.json';
 import { IActivityEvent, IErrorEvent } from '../../events';
 import { Manifest } from '../../manifest';
@@ -50,6 +52,9 @@ export class HttpPlugin implements ISender {
   readonly manifest!: Partial<Manifest>;
 
   @Dependency({ optional: true })
+  readonly credentials?: Credentials;
+
+  @Dependency({ optional: true })
   readonly botToken?: () => IToken;
 
   @Dependency({ optional: true })
@@ -81,6 +86,7 @@ export class HttpPlugin implements ISender {
 
   protected express: express.Application;
   protected pending: Record<string, express.Response> = {};
+  protected botTokenValidator: BotTokenValidator | null = null;
 
   constructor(server?: http.Server) {
     this.express = express();
@@ -109,8 +115,18 @@ export class HttpPlugin implements ISender {
     return this;
   }
 
+  onInit() {
+    if (process.env.NODE_ENV !== 'local' && this.credentials?.clientId) {
+      this.logger.debug(`initializing bot token validator for ${this.credentials.clientId}`);
+      this.botTokenValidator = new BotTokenValidator(this.credentials.clientId, this.logger);
+    } else {
+      this.logger.debug('no client id found, skipping bot token validator');
+    }
+  }
+
   async onStart({ port }: IPluginStartEvent) {
     this._port = port;
+
     this.express.get('/', (_, res) => {
       res.send(this.manifest);
     });
@@ -217,15 +233,32 @@ export class HttpPlugin implements ISender {
     }
 
     const activity: Activity = req.body;
-    const token: IToken = authorization
-      ? new JsonWebToken(authorization)
-      : {
-          appId: '',
-          from: 'azure',
-          fromId: '',
-          serviceUrl: activity.serviceUrl || '',
-          isExpired: () => false,
-        };
+    let token: IToken;
+    if (this.botTokenValidator) {
+      if (!authorization) {
+        res.status(401).send('unauthorized no authorization header');
+        return;
+      }
+
+      try {
+        await this.botTokenValidator.validateToken(authorization, activity.serviceUrl || '');
+        token = new JsonWebToken(authorization);
+      } catch (error: any) {
+        if (error instanceof TokenAuthenticationError || error instanceof TokenClaimsError || error instanceof TokenFormatError || error instanceof TokenInfrastructureError || error instanceof TokenValidationError) {
+          res.status(401).send(error.message);
+          return;
+        }
+        throw error;
+      }
+    } else {
+      token = {
+        appId: '',
+        from: 'azure',
+        fromId: '',
+        serviceUrl: activity.serviceUrl || '',
+        isExpired: () => false,
+      }
+    }
 
     this.pending[activity.id] = res;
     this.$onActivity({
