@@ -132,7 +132,12 @@ export class ServiceTokenValidator {
       throw new TokenValidationError(TokenValidationErrorCode.MISSING_KEY_ID, 'Token missing key ID (kid)');
     }
 
-    const keyResult = await this.keyRetriever.getPublicKey(unverifiedHeader.kid, metadata.jwks_uri!);
+    if (!metadata.jwks_uri) {
+      this.logger?.error('OpenID metadata missing JWKS URI');
+      throw new TokenValidationError(TokenValidationErrorCode.METADATA_RETRIEVAL_FAILED, 'JWKS URI not found in metadata');
+    }
+
+    const keyResult = await this.keyRetriever.getPublicKey(unverifiedHeader.kid, metadata.jwks_uri);
     if (!keyResult.success) {
       this.logger?.error(keyResult.error);
       throw new TokenValidationError(
@@ -140,8 +145,9 @@ export class ServiceTokenValidator {
         keyResult.error || `Failed to get signing key for kid: ${unverifiedHeader.kid}`
       );
     }
+    const publicKey = keyResult.data;
 
-    const verifyResult = verify(rawToken, keyResult.data!, {
+    const verifyResult = verify(rawToken, publicKey, {
       algorithms: [algorithm],
       complete: false,
       audience: this.appId,
@@ -153,7 +159,7 @@ export class ServiceTokenValidator {
     }
 
     if (serviceUrl) {
-      const tokenServiceUrl = verifyResult.serviceurl;
+      const tokenServiceUrl: string = verifyResult.serviceurl;
 
       if (!tokenServiceUrl) {
         this.logger?.error('Token missing serviceurl claim');

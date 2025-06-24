@@ -105,6 +105,14 @@ export class EntraTokenValidator {
     return token.payload instanceof Object ? token.payload : null;
   }
 
+  /**
+    * Validates the token claims: that it's valid for the intended purpose, it's not expired, it has the right audience & issuer,
+     * it's issued for the requisite scope.
+     * @param {ILogger} logger The logger to use.
+     * @param {jwt.Jwt} token The token to validate.
+     * @param { string | undefined } requiredScope If provided, the token will only be considered valid if issued for this scope.
+     * @returns {boolean} True if the claims validation passed.
+     */
   private validateAccessTokenClaims(
     logger: ILogger,
     payload: JwtPayload,
