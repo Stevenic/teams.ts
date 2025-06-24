@@ -7,7 +7,7 @@ import {
 
 import express from 'express';
 
-import { $Activity, Activity, Credentials, IToken, JsonWebToken } from '@microsoft/teams.api';
+import { $Activity, Activity, IToken, JsonWebToken } from '@microsoft/teams.api';
 import {
   Dependency,
   Event,
@@ -48,9 +48,6 @@ export class BotBuilderPlugin extends HttpPlugin implements ISender {
 
   @Dependency({ optional: true })
   declare readonly graphToken?: () => IToken;
-
-  @Dependency({ optional: true })
-  readonly credentials?: Credentials;
 
   @Event('error')
   declare readonly $onError: (event: IErrorEvent) => void;
