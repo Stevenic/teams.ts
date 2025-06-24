@@ -1,5 +1,3 @@
-// Algorithm import removed - now using shared utility functions
-
 import { Client, ILogger } from '@microsoft/teams.common';
 
 import { CacheManager } from './cache-manager';
