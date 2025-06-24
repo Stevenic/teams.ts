@@ -12,7 +12,7 @@ import {
   IToken,
   JsonWebToken
 } from '@microsoft/teams.api';
-import { BotTokenValidator, TokenValidationError } from '@microsoft/teams.auth';
+
 import { ILogger } from '@microsoft/teams.common';
 import * as $http from '@microsoft/teams.common/http';
 
@@ -30,6 +30,8 @@ import {
   Logger,
   Plugin,
 } from '../../types';
+
+import { BotTokenValidator, TokenValidationError } from './auth';
 
 import { HttpStream } from './stream';
 
