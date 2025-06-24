@@ -19,7 +19,7 @@ import * as $http from '@microsoft/teams.common/http';
 import pkg from '../../../package.json';
 import { IActivityEvent, IErrorEvent } from '../../events';
 import { Manifest } from '../../manifest';
-import { BotTokenValidator, TokenValidationError } from '../../middleware';
+import { ServiceTokenValidator, TokenValidationError } from '../../middleware';
 import {
   Dependency,
   Event,
@@ -88,7 +88,7 @@ export class HttpPlugin implements ISender {
 
   protected express: express.Application;
   protected pending: Record<string, express.Response> = {};
-  protected botTokenValidator: BotTokenValidator | null = null;
+  protected serviceTokenValidator: ServiceTokenValidator | null = null;
 
   constructor(server?: http.Server) {
     this.express = express();
@@ -119,10 +119,10 @@ export class HttpPlugin implements ISender {
 
   onInit() {
     if (process.env.NODE_ENV !== 'local' && this.credentials?.clientId) {
-      this.logger.debug(`initializing bot token validator for ${this.credentials.clientId}`);
-      this.botTokenValidator = new BotTokenValidator(this.credentials.clientId, this.logger);
+      this.logger.debug(`initializing service token validator for ${this.credentials.clientId}`);
+      this.serviceTokenValidator = new ServiceTokenValidator(this.credentials.clientId, this.logger);
     } else {
-      this.logger.debug('no client id found, skipping bot token validator');
+      this.logger.debug('no client id found, skipping service token validator');
     }
   }
 
@@ -236,14 +236,14 @@ export class HttpPlugin implements ISender {
 
     const activity: Activity = req.body;
     let token: IToken;
-    if (this.botTokenValidator) {
+    if (this.serviceTokenValidator) {
       if (!authorization) {
         res.status(401).send('unauthorized no authorization header');
         return;
       }
 
       try {
-        await this.botTokenValidator.validateAccessToken(authorization, activity.serviceUrl);
+        await this.serviceTokenValidator.validateAccessToken(authorization, activity.serviceUrl);
         token = new JsonWebToken(authorization);
       } catch (error: any) {
         if (error instanceof TokenValidationError) {

@@ -1,4 +1,5 @@
-export * from './bot-token-validator';
 export { EntraTokenValidator } from './entra-token-validator';
+export * from './service-token-validator';
 export * from './strip-mentions-text';
 export * from './with-client-auth';
+

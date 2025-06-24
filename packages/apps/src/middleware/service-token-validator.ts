@@ -47,7 +47,7 @@ interface IOpenIdMetadata {
   token_endpoint_auth_methods_supported: string[];
 }
 
-export class BotTokenValidator {
+export class ServiceTokenValidator {
   private readonly appId: string;
   private readonly logger?: ILogger;
   private readonly client: Client = new Client();
@@ -175,7 +175,7 @@ export class BotTokenValidator {
       }
     }
 
-    this.logger?.debug('Bot Framework token validation successful');
+    this.logger?.debug('Service Framework token validation successful');
   }
 
 

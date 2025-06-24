@@ -3,10 +3,10 @@ import jwksClient from 'jwks-rsa';
 
 import { Client } from '@microsoft/teams.common';
 
-import { BotTokenValidator, TokenValidationError, TokenValidationErrorCode } from './bot-token-validator';
 import { CacheManager } from './cache-manager';
 import { JwksKeyRetriever } from './jwks-key-retriever';
 import * as jwtUtils from './jwt-utils';
+import { ServiceTokenValidator, TokenValidationError, TokenValidationErrorCode } from './service-token-validator';
 
 jest.mock('jsonwebtoken', () => ({
   decode: jest.fn(),
@@ -33,8 +33,8 @@ const MockedCacheManager = CacheManager as jest.MockedClass<typeof CacheManager>
 
 const MockedClient = Client as jest.MockedClass<typeof Client>;
 
-describe('BotTokenValidator', () => {
-  let validator: BotTokenValidator;
+describe('ServiceTokenValidator', () => {
+  let validator: ServiceTokenValidator;
   let mockJwksClientInstance: any;
   let mockClientInstance: any;
   let mockKeyRetrieverInstance: any;
@@ -125,7 +125,7 @@ describe('BotTokenValidator', () => {
 
     mockCacheManagerInstance.get.mockReturnValue(null); // No cached metadata initially
 
-    validator = new BotTokenValidator(TEST_APP_ID);
+    validator = new ServiceTokenValidator(TEST_APP_ID);
   });
 
   describe('validateToken', () => {
@@ -212,7 +212,7 @@ describe('BotTokenValidator', () => {
 
     it('should throw TokenValidationError when metadata fetch fails', async () => {
       // Create a new validator instance to avoid cached metadata
-      const freshValidator = new BotTokenValidator(TEST_APP_ID);
+      const freshValidator = new ServiceTokenValidator(TEST_APP_ID);
 
       // Reset all mocks to clear any previous setup
       mockClientInstance.get.mockReset();
@@ -227,7 +227,7 @@ describe('BotTokenValidator', () => {
 
     it('should throw TokenValidationError for unsupported algorithm in metadata', async () => {
       // Create a fresh validator to ensure we get fresh metadata
-      const freshValidator = new BotTokenValidator(TEST_APP_ID);
+      const freshValidator = new ServiceTokenValidator(TEST_APP_ID);
 
       const metadataWithLimitedAlgs = {
         ...VALID_METADATA,
@@ -478,7 +478,7 @@ describe('BotTokenValidator', () => {
       await validator.validateAccessToken('token1');
 
       // Create a new validator instance to test URI change scenario
-      const newValidator = new BotTokenValidator(TEST_APP_ID);
+      const newValidator = new ServiceTokenValidator(TEST_APP_ID);
 
       // Mock different metadata with different JWKS URI for the new call
       const differentMetadata = {
