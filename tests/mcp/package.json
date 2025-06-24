@@ -35,7 +35,7 @@
   },
   "devDependencies": {
     "@microsoft/teams.config": "2.0.0-preview.6",
-    "@modelcontextprotocol/inspector": "^0.6.0",
+    "@modelcontextprotocol/inspector": "^0.14.1",
     "@types/node": "^22.5.4",
     "cross-env": "^7.0.3",
     "dotenv": "^16.4.5",
