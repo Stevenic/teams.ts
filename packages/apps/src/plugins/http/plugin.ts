@@ -241,7 +241,7 @@ export class HttpPlugin implements ISender {
       }
 
       try {
-        await this.botTokenValidator.validateToken(authorization, activity.serviceUrl || '');
+        await this.botTokenValidator.validateToken(authorization, activity.serviceUrl);
         token = new JsonWebToken(authorization);
       } catch (error: any) {
         if (error instanceof TokenValidationError) {
