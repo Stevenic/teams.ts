@@ -8,7 +8,8 @@
       "dependsOn": [
         "@microsoft/teams.api#build",
         "@microsoft/teams.common#build",
-        "@microsoft/teams.graph#build"
+        "@microsoft/teams.graph#build",
+        "@microsoft/teams.auth#build"
       ]
     }
   }
