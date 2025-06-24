@@ -9,7 +9,6 @@ import {
   TokenValidationErrorCode
 } from './types';
 
-// Mock dependencies
 jest.mock('jsonwebtoken', () => ({
   decode: jest.fn(),
   verify: jest.fn(),
@@ -17,7 +16,6 @@ jest.mock('jsonwebtoken', () => ({
 jest.mock('jwks-rsa');
 jest.mock('@microsoft/teams.common', () => ({
   Client: jest.fn(),
-  ILogger: {},
 }));
 
 const mockJwt = jwt as jest.Mocked<typeof jwt>;
@@ -27,7 +25,6 @@ const MockedClient = Client as jest.MockedClass<typeof Client>;
 
 describe('BotTokenValidator', () => {
   let validator: BotTokenValidator;
-  let mockLogger: any;
   let mockJwksClientInstance: any;
   let mockClientInstance: any;
 
@@ -61,13 +58,6 @@ describe('BotTokenValidator', () => {
   beforeEach(() => {
     jest.clearAllMocks();
 
-    mockLogger = {
-      error: jest.fn(),
-      warn: jest.fn(),
-      info: jest.fn(),
-      debug: jest.fn(),
-    };
-
     mockJwksClientInstance = {
       getSigningKey: jest.fn(),
       verify: jest.fn(),
@@ -81,7 +71,7 @@ describe('BotTokenValidator', () => {
 
     MockedClient.mockImplementation(() => mockClientInstance);
 
-    validator = new BotTokenValidator(TEST_APP_ID, mockLogger);
+    validator = new BotTokenValidator(TEST_APP_ID);
   });
 
   describe('validateToken', () => {
@@ -117,11 +107,10 @@ describe('BotTokenValidator', () => {
       const result = await validator.validateToken('valid.jwt.token');
 
       expect(result).toEqual(VALID_PAYLOAD);
-      expect(mockLogger.debug).toHaveBeenCalledWith('Bot Framework token validation successful');
     });
 
     it('should validate token with service URL', async () => {
-      const serviceUrl = 'https://smba.trafficmanager.net/amer/';
+      const serviceUrl = VALID_PAYLOAD.serviceurl!;
       const result = await validator.validateToken('valid.jwt.token', serviceUrl);
 
       expect(result).toEqual(VALID_PAYLOAD);
@@ -188,7 +177,7 @@ describe('BotTokenValidator', () => {
 
     it('should throw TokenValidationError when metadata fetch fails', async () => {
       // Create a new validator instance to avoid cached metadata
-      const freshValidator = new BotTokenValidator(TEST_APP_ID, mockLogger);
+      const freshValidator = new BotTokenValidator(TEST_APP_ID);
 
       // Reset all mocks to clear any previous setup
       mockClientInstance.get.mockReset();
@@ -386,7 +375,7 @@ describe('BotTokenValidator', () => {
         name: 'mismatched service URL',
         token: 'valid.jwt.token',
         serviceUrl: 'https://different.service.url/',
-        setup: () => {},
+        setup: () => { },
         expectedCode: TokenValidationErrorCode.SERVICE_URL_MISMATCH,
       },
     ])('should throw TokenValidationError for $name', async ({ token, serviceUrl, setup, expectedCode }) => {
@@ -448,7 +437,7 @@ describe('BotTokenValidator', () => {
       await validator.validateToken('token1');
 
       // Create a new validator instance to test URI change scenario
-      const newValidator = new BotTokenValidator(TEST_APP_ID, mockLogger);
+      const newValidator = new BotTokenValidator(TEST_APP_ID);
 
       // Mock different metadata with different JWKS URI for the new call
       const differentMetadata = {
