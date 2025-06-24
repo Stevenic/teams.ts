@@ -5,10 +5,7 @@ import { Client } from '@microsoft/teams.common';
 
 import { BotTokenValidator } from './botTokenValidator';
 import {
-  TokenAuthenticationError,
-  TokenClaimsError,
-  TokenFormatError,
-  TokenInfrastructureError,
+  TokenValidationError,
   TokenValidationErrorCode
 } from './types';
 
@@ -135,7 +132,7 @@ describe('BotTokenValidator', () => {
         name: 'missing token',
         token: '',
         setup: () => { },
-        expectedError: TokenFormatError,
+        expectedError: TokenValidationError,
         expectedCode: TokenValidationErrorCode.MISSING_TOKEN,
       },
       {
@@ -146,7 +143,7 @@ describe('BotTokenValidator', () => {
             throw new Error('Invalid token');
           });
         },
-        expectedError: TokenFormatError,
+        expectedError: TokenValidationError,
         expectedCode: TokenValidationErrorCode.MALFORMED_TOKEN,
       },
       {
@@ -160,7 +157,7 @@ describe('BotTokenValidator', () => {
             })
             .mockReturnValueOnce(VALID_PAYLOAD);
         },
-        expectedError: TokenFormatError,
+        expectedError: TokenValidationError,
         expectedCode: TokenValidationErrorCode.MALFORMED_TOKEN,
       },
       {
@@ -177,10 +174,10 @@ describe('BotTokenValidator', () => {
             return VALID_PAYLOAD;
           });
         },
-        expectedError: TokenFormatError,
+        expectedError: TokenValidationError,
         expectedCode: TokenValidationErrorCode.UNSUPPORTED_ALGORITHM,
       },
-    ])('should throw TokenFormatError for $name', async ({ token, setup, expectedError, expectedCode }) => {
+    ])('should throw TokenValidationError for $name', async ({ token, setup, expectedError, expectedCode }) => {
       setup();
 
       await expect(validator.validateToken(token)).rejects.toThrow(expectedError);
@@ -189,7 +186,7 @@ describe('BotTokenValidator', () => {
       });
     });
 
-    it('should throw TokenInfrastructureError when metadata fetch fails', async () => {
+    it('should throw TokenValidationError when metadata fetch fails', async () => {
       // Create a new validator instance to avoid cached metadata
       const freshValidator = new BotTokenValidator(TEST_APP_ID, mockLogger);
 
@@ -209,13 +206,13 @@ describe('BotTokenValidator', () => {
 
       mockClientInstance.get.mockRejectedValue(new Error('Network error'));
 
-      await expect(freshValidator.validateToken('valid.jwt.token')).rejects.toThrow(TokenInfrastructureError);
+      await expect(freshValidator.validateToken('valid.jwt.token')).rejects.toThrow(TokenValidationError);
       await expect(freshValidator.validateToken('valid.jwt.token')).rejects.toMatchObject({
         code: TokenValidationErrorCode.METADATA_RETRIEVAL_FAILED,
       });
     });
 
-    it('should throw TokenAuthenticationError for unsupported algorithm in metadata', async () => {
+    it('should throw TokenValidationError for unsupported algorithm in metadata', async () => {
       const metadataWithLimitedAlgs = {
         ...VALID_METADATA,
         id_token_signing_alg_values_supported: ['ES256'],
@@ -225,13 +222,13 @@ describe('BotTokenValidator', () => {
         data: metadataWithLimitedAlgs,
       });
 
-      await expect(validator.validateToken('valid.jwt.token')).rejects.toThrow(TokenAuthenticationError);
+      await expect(validator.validateToken('valid.jwt.token')).rejects.toThrow(TokenValidationError);
       await expect(validator.validateToken('valid.jwt.token')).rejects.toMatchObject({
         code: TokenValidationErrorCode.UNSUPPORTED_ALGORITHM,
       });
     });
 
-    it('should throw TokenFormatError for missing key ID', async () => {
+    it('should throw TokenValidationError for missing key ID', async () => {
       jest.clearAllMocks();
 
       mockJwt.decode.mockImplementation((_token, options) => {
@@ -248,27 +245,27 @@ describe('BotTokenValidator', () => {
         data: VALID_METADATA,
       });
 
-      await expect(validator.validateToken('token.without.kid')).rejects.toThrow(TokenFormatError);
+      await expect(validator.validateToken('token.without.kid')).rejects.toThrow(TokenValidationError);
       await expect(validator.validateToken('token.without.kid')).rejects.toMatchObject({
         code: TokenValidationErrorCode.MISSING_KEY_ID,
       });
     });
 
-    it('should throw TokenAuthenticationError when key retrieval fails', async () => {
+    it('should throw TokenValidationError when key retrieval fails', async () => {
       mockJwksClientInstance.getSigningKey.mockRejectedValue(new Error('Key not found'));
 
-      await expect(validator.validateToken('valid.jwt.token')).rejects.toThrow(TokenAuthenticationError);
+      await expect(validator.validateToken('valid.jwt.token')).rejects.toThrow(TokenValidationError);
       await expect(validator.validateToken('valid.jwt.token')).rejects.toMatchObject({
         code: TokenValidationErrorCode.KEY_NOT_FOUND,
       });
     });
 
-    it('should throw TokenAuthenticationError when JWT verification fails', async () => {
+    it('should throw TokenValidationError when JWT verification fails', async () => {
       mockJwt.verify.mockImplementation(() => {
         throw new Error('Invalid signature');
       });
 
-      await expect(validator.validateToken('valid.jwt.token')).rejects.toThrow(TokenAuthenticationError);
+      await expect(validator.validateToken('valid.jwt.token')).rejects.toThrow(TokenValidationError);
       await expect(validator.validateToken('valid.jwt.token')).rejects.toMatchObject({
         code: TokenValidationErrorCode.SIGNATURE_VERIFICATION_FAILED,
       });
@@ -295,38 +292,38 @@ describe('BotTokenValidator', () => {
         name: 'invalid issuer',
         token: 'token.with.invalid.issuer',
         payload: { ...VALID_PAYLOAD, iss: 'https://invalid.issuer.com' },
-        expectedError: TokenClaimsError,
+        expectedError: TokenValidationError,
         expectedCode: TokenValidationErrorCode.INVALID_ISSUER,
       },
       {
         name: 'invalid audience',
         token: 'token.with.invalid.audience',
         payload: { ...VALID_PAYLOAD, aud: 'wrong-app-id' },
-        expectedError: TokenClaimsError,
+        expectedError: TokenValidationError,
         expectedCode: TokenValidationErrorCode.INVALID_AUDIENCE,
       },
       {
         name: 'missing expiration',
         token: 'token.without.exp',
         payload: { ...VALID_PAYLOAD, exp: undefined },
-        expectedError: TokenFormatError,
+        expectedError: TokenValidationError,
         expectedCode: TokenValidationErrorCode.MALFORMED_TOKEN,
       },
       {
         name: 'expired token',
         token: 'expired.token',
         payload: { ...VALID_PAYLOAD, exp: Math.floor(Date.now() / 1000) - 3600 },
-        expectedError: TokenClaimsError,
+        expectedError: TokenValidationError,
         expectedCode: TokenValidationErrorCode.EXPIRED_TOKEN,
       },
       {
         name: 'future token',
         token: 'future.token',
         payload: { ...VALID_PAYLOAD, iat: Math.floor(Date.now() / 1000) + 3600 },
-        expectedError: TokenClaimsError,
+        expectedError: TokenValidationError,
         expectedCode: TokenValidationErrorCode.FUTURE_TOKEN,
       },
-    ])('should throw $expectedError.name for $name', async ({ token, payload, expectedError, expectedCode }) => {
+    ])('should throw TokenValidationError for $name', async ({ token, payload, expectedError, expectedCode }) => {
       mockJwt.decode.mockImplementation((_token, options) => {
         if (options && typeof options === 'object' && 'complete' in options && options.complete) {
           return {
@@ -392,10 +389,10 @@ describe('BotTokenValidator', () => {
         setup: () => {},
         expectedCode: TokenValidationErrorCode.SERVICE_URL_MISMATCH,
       },
-    ])('should throw TokenClaimsError for $name', async ({ token, serviceUrl, setup, expectedCode }) => {
+    ])('should throw TokenValidationError for $name', async ({ token, serviceUrl, setup, expectedCode }) => {
       setup();
 
-      await expect(validator.validateToken(token, serviceUrl)).rejects.toThrow(TokenClaimsError);
+      await expect(validator.validateToken(token, serviceUrl)).rejects.toThrow(TokenValidationError);
       await expect(validator.validateToken(token, serviceUrl)).rejects.toMatchObject({
         code: expectedCode,
       });

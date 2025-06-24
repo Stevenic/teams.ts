@@ -2,10 +2,6 @@ export { BotTokenValidator } from './botTokenValidator';
 export {
   TokenValidationErrorCode,
   TokenValidationError,
-  TokenFormatError,
-  TokenClaimsError,
-  TokenAuthenticationError,
-  TokenInfrastructureError,
   IBotFrameworkJwtPayload,
   IOpenIdMetadata,
   IJwksKey,

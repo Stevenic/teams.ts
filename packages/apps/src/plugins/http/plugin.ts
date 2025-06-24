@@ -15,7 +15,7 @@ import {
 import { ILogger } from '@microsoft/teams.common';
 import * as $http from '@microsoft/teams.common/http';
 
-import { BotTokenValidator, TokenAuthenticationError, TokenClaimsError, TokenFormatError, TokenInfrastructureError, TokenValidationError } from '@microsoft/teams.auth';
+import { BotTokenValidator, TokenValidationError } from '@microsoft/teams.auth';
 import pkg from '../../../package.json';
 import { IActivityEvent, IErrorEvent } from '../../events';
 import { Manifest } from '../../manifest';
@@ -244,7 +244,7 @@ export class HttpPlugin implements ISender {
         await this.botTokenValidator.validateToken(authorization, activity.serviceUrl || '');
         token = new JsonWebToken(authorization);
       } catch (error: any) {
-        if (error instanceof TokenAuthenticationError || error instanceof TokenClaimsError || error instanceof TokenFormatError || error instanceof TokenInfrastructureError || error instanceof TokenValidationError) {
+        if (error instanceof TokenValidationError) {
           res.status(401).send(error.message);
           return;
         }

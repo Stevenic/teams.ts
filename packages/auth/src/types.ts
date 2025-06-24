@@ -25,34 +25,6 @@ export class TokenValidationError extends Error {
   }
 }
 
-export class TokenFormatError extends TokenValidationError {
-  constructor(code: TokenValidationErrorCode, message: string) {
-    super(code, message);
-    this.name = 'TokenFormatError';
-  }
-}
-
-export class TokenClaimsError extends TokenValidationError {
-  constructor(code: TokenValidationErrorCode, message: string) {
-    super(code, message);
-    this.name = 'TokenClaimsError';
-  }
-}
-
-export class TokenAuthenticationError extends TokenValidationError {
-  constructor(code: TokenValidationErrorCode, message: string) {
-    super(code, message);
-    this.name = 'TokenAuthenticationError';
-  }
-}
-
-export class TokenInfrastructureError extends TokenValidationError {
-  constructor(code: TokenValidationErrorCode, message: string) {
-    super(code, message);
-    this.name = 'TokenInfrastructureError';
-  }
-}
-
 export interface IOpenIdMetadata {
   issuer?: string;
   authorization_endpoint?: string;

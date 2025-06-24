@@ -11,10 +11,7 @@ import { Client, ILogger } from '@microsoft/teams.common';
 import {
   IBotFrameworkJwtPayload,
   IOpenIdMetadata,
-  TokenAuthenticationError,
-  TokenClaimsError,
-  TokenFormatError,
-  TokenInfrastructureError,
+  TokenValidationError,
   TokenValidationErrorCode,
 } from './types';
 
@@ -56,7 +53,7 @@ export class BotTokenValidator {
   async validateToken(rawToken: string, serviceUrl?: string): Promise<IBotFrameworkJwtPayload> {
     if (!rawToken) {
       this.logger?.error('No token provided');
-      throw new TokenFormatError(TokenValidationErrorCode.MISSING_TOKEN, 'No token provided');
+      throw new TokenValidationError(TokenValidationErrorCode.MISSING_TOKEN, 'No token provided');
     }
 
     let unverifiedHeader: JwtHeader;
@@ -78,7 +75,7 @@ export class BotTokenValidator {
       unverifiedPayload = payload;
     } catch (error) {
       this.logger?.error(`Token malformed: ${error}`);
-      throw new TokenFormatError(TokenValidationErrorCode.MALFORMED_TOKEN, 'Token malformed');
+      throw new TokenValidationError(TokenValidationErrorCode.MALFORMED_TOKEN, 'Token malformed');
     }
 
     this.validateBasicClaims(unverifiedPayload);
@@ -86,18 +83,18 @@ export class BotTokenValidator {
     const algorithm = unverifiedHeader.alg;
     if (!algorithm) {
       this.logger?.error('Token missing algorithm in header');
-      throw new TokenFormatError(TokenValidationErrorCode.MALFORMED_TOKEN, 'Token missing algorithm in header');
+      throw new TokenValidationError(TokenValidationErrorCode.MALFORMED_TOKEN, 'Token missing algorithm in header');
     }
 
     if (!isSupportedAlgorithm(algorithm)) {
       this.logger?.error(`Unsupported algorithm: ${algorithm}`);
-      throw new TokenFormatError(TokenValidationErrorCode.UNSUPPORTED_ALGORITHM, `Unsupported algorithm: ${algorithm}`);
+      throw new TokenValidationError(TokenValidationErrorCode.UNSUPPORTED_ALGORITHM, `Unsupported algorithm: ${algorithm}`);
     }
 
     const metadata = await this.getOpenIdMetadata();
     if (!metadata) {
       this.logger?.error('Failed to retrieve OpenID metadata for algorithm validation');
-      throw new TokenInfrastructureError(
+      throw new TokenValidationError(
         TokenValidationErrorCode.METADATA_RETRIEVAL_FAILED,
         'Failed to retrieve OpenID metadata'
       );
@@ -107,7 +104,7 @@ export class BotTokenValidator {
     const jwksClient = this.getJwksClient(metadata);
     if (!jwksClient) {
       this.logger?.error('Failed to initialize JWKS client');
-      throw new TokenInfrastructureError(
+      throw new TokenValidationError(
         TokenValidationErrorCode.JWKS_RETRIEVAL_FAILED,
         'Failed to initialize JWKS client'
       );
@@ -116,7 +113,7 @@ export class BotTokenValidator {
     const supportedAlgorithms = metadata.id_token_signing_alg_values_supported;
     if (!supportedAlgorithms.includes(algorithm)) {
       this.logger?.error(`Token algorithm '${algorithm}' not in supported algorithms: ${supportedAlgorithms}`);
-      throw new TokenAuthenticationError(
+      throw new TokenValidationError(
         TokenValidationErrorCode.UNSUPPORTED_ALGORITHM,
         `Algorithm '${algorithm}' not supported`
       );
@@ -124,7 +121,7 @@ export class BotTokenValidator {
 
     if (!unverifiedHeader.kid) {
       this.logger?.error('Token missing key ID (kid)');
-      throw new TokenFormatError(TokenValidationErrorCode.MISSING_KEY_ID, 'Token missing key ID (kid)');
+      throw new TokenValidationError(TokenValidationErrorCode.MISSING_KEY_ID, 'Token missing key ID (kid)');
     }
 
     const publicKey = await this.getPublicKey(jwksClient, unverifiedHeader.kid);
@@ -144,7 +141,7 @@ export class BotTokenValidator {
       verifiedPayload = verifiedToken;
     } catch (error) {
       this.logger?.error(`JWT signature verification failed: ${error}`);
-      throw new TokenAuthenticationError(
+      throw new TokenValidationError(
         TokenValidationErrorCode.SIGNATURE_VERIFICATION_FAILED,
         'Signature verification failed'
       );
@@ -161,29 +158,29 @@ export class BotTokenValidator {
   private validateBasicClaims(payload: IBotFrameworkJwtPayload): void {
     if (payload.iss !== EXPECTED_ISSUER) {
       this.logger?.error(`Invalid issuer: ${payload.iss}`);
-      throw new TokenClaimsError(TokenValidationErrorCode.INVALID_ISSUER, `Invalid issuer: ${payload.iss}`);
+      throw new TokenValidationError(TokenValidationErrorCode.INVALID_ISSUER, `Invalid issuer: ${payload.iss}`);
     }
 
     if (payload.aud !== this.appId) {
       this.logger?.error(`Invalid audience: ${payload.aud}`);
-      throw new TokenClaimsError(TokenValidationErrorCode.INVALID_AUDIENCE, `Invalid audience: ${payload.aud}`);
+      throw new TokenValidationError(TokenValidationErrorCode.INVALID_AUDIENCE, `Invalid audience: ${payload.aud}`);
     }
 
     if (!payload.exp) {
       this.logger?.error('Token missing expiration claim');
-      throw new TokenFormatError(TokenValidationErrorCode.MALFORMED_TOKEN, 'Token missing expiration claim');
+      throw new TokenValidationError(TokenValidationErrorCode.MALFORMED_TOKEN, 'Token missing expiration claim');
     }
 
     const currentTime = Math.floor(Date.now() / 1000);
 
     if (currentTime > (payload.exp + EXPIRATION_BUFFER_SECONDS)) {
       this.logger?.error('Token is expired');
-      throw new TokenClaimsError(TokenValidationErrorCode.EXPIRED_TOKEN, 'Token is expired');
+      throw new TokenValidationError(TokenValidationErrorCode.EXPIRED_TOKEN, 'Token is expired');
     }
 
     if (payload.iat && (currentTime + EXPIRATION_BUFFER_SECONDS) < payload.iat) {
       this.logger?.error('Token issued in the future');
-      throw new TokenClaimsError(TokenValidationErrorCode.FUTURE_TOKEN, 'Token issued in the future');
+      throw new TokenValidationError(TokenValidationErrorCode.FUTURE_TOKEN, 'Token issued in the future');
     }
   }
 
@@ -192,15 +189,15 @@ export class BotTokenValidator {
 
     if (!tokenServiceUrl) {
       this.logger?.error('Token missing serviceurl claim');
-      throw new TokenClaimsError(TokenValidationErrorCode.MISSING_SERVICE_URL, 'Token missing serviceurl claim');
+      throw new TokenValidationError(TokenValidationErrorCode.MISSING_SERVICE_URL, 'Token missing serviceurl claim');
     }
 
-    const normalizedTokenUrl = tokenServiceUrl.replace(/\/$/, '');
-    const normalizedExpectedUrl = expectedServiceUrl.replace(/\/$/, '');
+    const normalizedTokenUrl = tokenServiceUrl.replace(/\/$/, '').toLowerCase();
+    const normalizedExpectedUrl = expectedServiceUrl.replace(/\/$/, '').toLowerCase();
 
     if (normalizedTokenUrl !== normalizedExpectedUrl) {
       this.logger?.error(`Service URL mismatch. Token: ${normalizedTokenUrl}, Expected: ${normalizedExpectedUrl}`);
-      throw new TokenClaimsError(
+      throw new TokenValidationError(
         TokenValidationErrorCode.SERVICE_URL_MISMATCH,
         `Service URL mismatch. Token: ${normalizedTokenUrl}, Expected: ${normalizedExpectedUrl}`
       );
@@ -234,7 +231,7 @@ export class BotTokenValidator {
       return key.getPublicKey();
     } catch (error) {
       this.logger?.error(`Failed to get signing key for kid ${kid}: ${error}`);
-      throw new TokenAuthenticationError(
+      throw new TokenValidationError(
         TokenValidationErrorCode.KEY_NOT_FOUND,
         `Failed to get signing key for kid: ${kid}`
       );
