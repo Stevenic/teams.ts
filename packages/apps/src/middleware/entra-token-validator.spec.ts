@@ -1,6 +1,10 @@
 import jwt from 'jsonwebtoken';
 
 import * as EntraTokenValidatorComponent from './entra-token-validator';
+import { JwksKeyRetriever } from './jwks-key-retriever';
+import * as jwtUtils from './jwt-utils';
+
+
 const { EntraTokenValidator, getJwksClient } = EntraTokenValidatorComponent;
 
 const mockDate = new Date('2025-10-01T00:00:00Z');
@@ -20,7 +24,7 @@ const mockToken = {
     alg: 'RS256',
     typ: 'JWT',
   },
-  signature: 'john hancock',
+  signature: 'verified',
   payload: {
     iat: Math.floor(mockDate.getTime() / 1000 - 60),
     exp: Math.floor(mockDate.getTime() / 1000 + 60),
@@ -33,6 +37,12 @@ const mockToken = {
 jest.mock('jsonwebtoken', () => {
   return { ...jest.requireActual('jsonwebtoken'), decode: jest.fn(), verify: jest.fn() };
 });
+jest.mock('./jwt-utils', () => ({
+  decodeJwt: jest.fn(),
+  verifyJwtSignature: jest.fn(),
+  validateTokenTime: jest.fn(),
+}));
+jest.mock('./jwks-key-retriever');
 
 describe('getJwksClient', () => {
   it('should return a JWKS client with the correct URI', () => {
@@ -51,35 +61,49 @@ describe('getJwksClient', () => {
 });
 
 describe('EntraTokenValidator', () => {
-  let getJwksClientSpy: jest.SpyInstance;
-  const mockGetPublicKey = jest.fn();
-  const mockDecodeToken = jwt.decode as jest.Mock;
-  const mockVerifyToken = jwt.verify as jest.Mock;
+  const mockJwtUtils = jwtUtils as jest.Mocked<typeof jwtUtils>;
+  const MockedJwksKeyRetriever = JwksKeyRetriever as jest.MockedClass<typeof JwksKeyRetriever>;
+  let mockKeyRetrieverInstance: any;
+  let mockVerifyToken: jest.Mock;
 
   beforeEach(() => {
     jest.useFakeTimers().setSystemTime(mockDate);
-    getJwksClientSpy = jest
-      .spyOn(EntraTokenValidatorComponent, 'getJwksClient')
-      .mockImplementation(() => {
-        return {
-          getSigningKey: jest.fn().mockResolvedValue({
-            getPublicKey: mockGetPublicKey.mockReturnValue('mockedPublicKey'),
-          }),
-          getSigningKeys: jest.fn(),
-          getKeys: jest.fn(),
-        };
-      });
 
+    // Mock the shared utilities
+    mockKeyRetrieverInstance = {
+      getPublicKey: jest.fn(),
+    };
+    MockedJwksKeyRetriever.mockImplementation(() => mockKeyRetrieverInstance);
+
+    // Setup default successful responses for shared utilities
+    mockJwtUtils.decodeJwt.mockReturnValue({
+      success: true,
+      data: {
+        header: mockToken.header,
+        payload: mockToken.payload,
+      },
+    });
+
+    mockJwtUtils.verifyJwtSignature.mockReturnValue({
+      success: true,
+      data: mockToken.payload,
+    });
+
+    mockJwtUtils.validateTokenTime.mockReturnValue({
+      success: true,
+      data: undefined,
+    });
+
+    mockKeyRetrieverInstance.getPublicKey.mockResolvedValue({
+      success: true,
+      data: 'mockedPublicKey',
+    });
+
+    // Mock old jwt directly for legacy tests that still use it
+    const mockDecodeToken = jwt.decode as jest.Mock;
+    mockVerifyToken = jwt.verify as jest.Mock;
     mockDecodeToken.mockImplementation(() => mockToken);
     mockVerifyToken.mockImplementation(() => mockToken);
-    mockGetPublicKey.mockImplementation(
-      jest.fn().mockResolvedValue(() => {
-        return {
-          publicKey: 'mock-public-key',
-          rsaPublicKey: 'mock-rsa-public-key',
-        };
-      })
-    );
   });
 
   afterEach(() => {
@@ -93,10 +117,7 @@ describe('EntraTokenValidator', () => {
         clientId: mockClientId,
         tenantId: mockTenantId,
       });
-      expect(getJwksClientSpy).toHaveBeenCalledTimes(1);
-      expect(getJwksClientSpy).toHaveBeenCalledWith({
-        jwksUri: 'https://login.microsoftonline.com/mock-tenant-id/discovery/v2.0/keys',
-      });
+      expect(MockedJwksKeyRetriever).toHaveBeenCalledTimes(1);
       expect(entraTokenValidator.clientId).toEqual(mockClientId);
       expect(entraTokenValidator.tenantId).toEqual(mockTenantId);
       expect(entraTokenValidator.validIssuerTenantIds).toEqual([mockTenantId]);
@@ -115,10 +136,7 @@ describe('EntraTokenValidator', () => {
           tenantId: mockTenantId,
           options: { allowedTenantIds },
         });
-        expect(getJwksClientSpy).toHaveBeenCalledTimes(1);
-        expect(getJwksClientSpy).toHaveBeenCalledWith({
-          jwksUri: 'https://login.microsoftonline.com/mock-tenant-id/discovery/v2.0/keys',
-        });
+        expect(MockedJwksKeyRetriever).toHaveBeenCalledTimes(1);
         expect(entraTokenValidator.clientId).toEqual(mockClientId);
         expect(entraTokenValidator.tenantId).toEqual(mockTenantId);
         expect(entraTokenValidator.validIssuerTenantIds).toEqual([mockTenantId]);
@@ -140,10 +158,7 @@ describe('EntraTokenValidator', () => {
           tenantId,
           options: { allowedTenantIds },
         });
-        expect(getJwksClientSpy).toHaveBeenCalledTimes(1);
-        expect(getJwksClientSpy).toHaveBeenCalledWith({
-          jwksUri: `https://login.microsoftonline.com/${tenantId}/discovery/v2.0/keys`,
-        });
+        expect(MockedJwksKeyRetriever).toHaveBeenCalledTimes(1);
         expect(entraTokenValidator.clientId).toEqual(mockClientId);
         expect(entraTokenValidator.tenantId).toEqual(tenantId);
         expect(entraTokenValidator.validIssuerTenantIds).toEqual(validIssuerTenantIds);
@@ -179,6 +194,11 @@ describe('EntraTokenValidator', () => {
 
   describe('validateAccessToken', () => {
     it('should return null if no token is provided', async () => {
+      mockJwtUtils.decodeJwt.mockReturnValue({
+        success: false,
+        error: 'No token provided',
+      });
+
       const entraTokenValidator = new EntraTokenValidator({
         clientId: mockClientId,
         tenantId: mockTenantId,
@@ -190,72 +210,74 @@ describe('EntraTokenValidator', () => {
     });
 
     it('should catch and log exception if the token cannot be decoded', async () => {
+      mockJwtUtils.decodeJwt.mockReturnValue({
+        success: false,
+        error: 'Token malformed: Invalid token exception',
+      });
+
       const entraTokenValidator = new EntraTokenValidator({
         clientId: mockClientId,
         tenantId: mockTenantId,
-      });
-
-      const exception = new Error('Invalid token exception');
-      mockDecodeToken.mockImplementation(() => {
-        throw exception;
       });
 
       const result = await entraTokenValidator.validateAccessToken(mockLogger, 'invalid-token');
       expect(result).toBeNull();
-      expect(mockDecodeToken).toHaveBeenCalledWith('invalid-token', { complete: true });
-      expect(mockLogger.error).toHaveBeenCalledTimes(2);
-      expect(mockLogger.error).toHaveBeenCalledWith(exception);
-      expect(mockLogger.error).toHaveBeenCalledWith('Failed to decode the access token');
+      expect(mockLogger.error).toHaveBeenCalledTimes(1);
+      expect(mockLogger.error).toHaveBeenCalledWith('Token malformed: Invalid token exception');
     });
 
     it('should return null if public key can not be found', async () => {
+      mockKeyRetrieverInstance.getPublicKey.mockResolvedValue({
+        success: false,
+        error: 'Failed to get signing key for kid mock-kid: Key not found',
+      });
+
       const entraTokenValidator = new EntraTokenValidator({
         clientId: mockClientId,
         tenantId: mockTenantId,
       });
-      mockGetPublicKey.mockReturnValue(null);
       const result = await entraTokenValidator.validateAccessToken(mockLogger, 'bearer-token');
       expect(result).toBeNull();
       expect(mockLogger.error).toHaveBeenCalledTimes(1);
       expect(mockLogger.error).toHaveBeenCalledWith(
-        'Failed to find public key for the key identifier "mock-kid"'
+        'Failed to get signing key for kid mock-kid: Key not found'
       );
     });
 
     it('should return null if public key can not be fetched', async () => {
+      mockKeyRetrieverInstance.getPublicKey.mockResolvedValue({
+        success: false,
+        error: 'Failed to get signing key for kid mock-kid: Public key fetch error',
+      });
+
       const entraTokenValidator = new EntraTokenValidator({
         clientId: mockClientId,
         tenantId: mockTenantId,
       });
 
-      const exception = new Error('Public key fetch error');
-      mockGetPublicKey.mockImplementation(() => {
-        throw exception;
-      });
       const result = await entraTokenValidator.validateAccessToken(mockLogger, 'bearer-token');
       expect(result).toBeNull();
-      expect(mockLogger.error).toHaveBeenCalledTimes(2);
-      expect(mockLogger.error).toHaveBeenCalledWith(exception);
+      expect(mockLogger.error).toHaveBeenCalledTimes(1);
       expect(mockLogger.error).toHaveBeenCalledWith(
-        'Failed to find public key for the key identifier "mock-kid"'
+        'Failed to get signing key for kid mock-kid: Public key fetch error'
       );
     });
 
     it('should return null if token signature can not be verified', async () => {
+      mockJwtUtils.verifyJwtSignature.mockReturnValue({
+        success: false,
+        error: 'JWT signature verification failed: Token signature verification error',
+      });
+
       const entraTokenValidator = new EntraTokenValidator({
         clientId: mockClientId,
         tenantId: mockTenantId,
       });
 
-      const exception = new Error('Token signature verification error');
-      mockVerifyToken.mockImplementation(() => {
-        throw exception;
-      });
       const result = await entraTokenValidator.validateAccessToken(mockLogger, 'bearer-token');
       expect(result).toBeNull();
-      expect(mockLogger.error).toHaveBeenCalledTimes(2);
-      expect(mockLogger.error).toHaveBeenCalledWith(exception);
-      expect(mockLogger.error).toHaveBeenCalledWith('Failed to validate the token signature');
+      expect(mockLogger.error).toHaveBeenCalledTimes(1);
+      expect(mockLogger.error).toHaveBeenCalledWith('JWT signature verification failed: Token signature verification error');
     });
   });
 
@@ -266,11 +288,17 @@ describe('EntraTokenValidator', () => {
       ${'access_as_user'}  | ${undefined}         | ${'no scope is required'}
       ${'access_as_santa'} | ${'access_as_santa'} | ${'the requested scope is present'}
     `('returns a token when $description', async ({ tokenScp, requiredScope }) => {
-      const token = {
+      const expectedPayload = { ...mockToken.payload, scp: tokenScp };
+      const expectedToken = {
         ...mockToken,
-        payload: { ...mockToken.payload, scp: tokenScp },
+        payload: expectedPayload,
       };
-      mockVerifyToken.mockImplementation(() => token);
+
+      // Mock the shared utility to return the expected payload
+      mockJwtUtils.verifyJwtSignature.mockReturnValue({
+        success: true,
+        data: expectedPayload,
+      });
 
       const entraTokenValidator = new EntraTokenValidator({
         clientId: mockClientId,
@@ -282,7 +310,7 @@ describe('EntraTokenValidator', () => {
         'bearer-token',
         requiredScope
       );
-      expect(result).toEqual(token);
+      expect(result).toEqual(expectedToken);
       expect(mockLogger.error).not.toHaveBeenCalled();
     });
 
@@ -291,11 +319,17 @@ describe('EntraTokenValidator', () => {
       ${mockClientId}
       ${`api://${mockClientId}`}
     `('returns a token when audience is $audience', async ({ audience }) => {
-      const token = {
+      const expectedPayload = { ...mockToken.payload, aud: audience };
+      const expectedToken = {
         ...mockToken,
-        payload: { ...mockToken.payload, aud: audience },
+        payload: expectedPayload,
       };
-      mockVerifyToken.mockImplementation(() => token);
+
+      // Mock the shared utility to return the expected payload
+      mockJwtUtils.verifyJwtSignature.mockReturnValue({
+        success: true,
+        data: expectedPayload,
+      });
 
       const entraTokenValidator = new EntraTokenValidator({
         clientId: mockClientId,
@@ -303,7 +337,7 @@ describe('EntraTokenValidator', () => {
       });
 
       const result = await entraTokenValidator.validateAccessToken(mockLogger, 'bearer-token');
-      expect(result).toEqual(token);
+      expect(result).toEqual(expectedToken);
       expect(mockLogger.error).not.toHaveBeenCalled();
     });
 
@@ -315,14 +349,20 @@ describe('EntraTokenValidator', () => {
     `(
       'returns a token when tenantId is $tenantId and $description',
       async ({ tenantId, allowedTenantIds }) => {
-        const token = {
-          ...mockToken,
-          payload: {
-            ...mockToken.payload,
-            iss: `https://login.microsoftonline.com/${mockTenantId}/`,
-          },
+        const expectedPayload = {
+          ...mockToken.payload,
+          iss: `https://login.microsoftonline.com/${mockTenantId}/`,
         };
-        mockVerifyToken.mockImplementation(() => token);
+        const expectedToken = {
+          ...mockToken,
+          payload: expectedPayload,
+        };
+
+        // Mock the shared utility to return the expected payload
+        mockJwtUtils.verifyJwtSignature.mockReturnValue({
+          success: true,
+          data: expectedPayload,
+        });
 
         const entraTokenValidator = new EntraTokenValidator({
           clientId: mockClientId,
@@ -331,7 +371,7 @@ describe('EntraTokenValidator', () => {
         });
 
         const result = await entraTokenValidator.validateAccessToken(mockLogger, 'bearer-token');
-        expect(result).toEqual(token);
+        expect(result).toEqual(expectedToken);
         expect(mockLogger.error).not.toHaveBeenCalled();
       }
     );
@@ -342,10 +382,11 @@ describe('EntraTokenValidator', () => {
         tenantId: mockTenantId,
       });
 
-      mockVerifyToken.mockImplementation(() => ({
-        ...mockToken,
-        payload: undefined,
-      }));
+      // Mock the shared utility to return success but with undefined payload
+      mockJwtUtils.verifyJwtSignature.mockReturnValue({
+        success: true,
+        data: undefined as any, // This simulates missing payload
+      });
 
       const result = await entraTokenValidator.validateAccessToken(mockLogger, 'bearer-token');
       expect(result).toBeNull();
@@ -355,14 +396,16 @@ describe('EntraTokenValidator', () => {
     });
 
     it('should return null if token issued-at value is missing', async () => {
-      mockVerifyToken.mockImplementation(() => ({
-        ...mockToken,
-        payload: { ...mockToken.payload, iat: undefined },
-      }));
-
       const entraTokenValidator = new EntraTokenValidator({
         clientId: mockClientId,
         tenantId: mockTenantId,
+      });
+
+      // Mock the shared utility to return payload with missing iat
+      const payloadWithoutIat = { ...mockToken.payload, iat: undefined };
+      mockJwtUtils.verifyJwtSignature.mockReturnValue({
+        success: true,
+        data: payloadWithoutIat,
       });
 
       const result = await entraTokenValidator.validateAccessToken(mockLogger, 'bearer-token');
@@ -373,14 +416,16 @@ describe('EntraTokenValidator', () => {
     });
 
     it('should return null if token issued-at value is in the future', async () => {
-      mockVerifyToken.mockImplementation(() => ({
-        ...mockToken,
-        payload: { ...mockToken.payload, iat: mockDate.getTime() / 1000 + 1 },
-      }));
-
       const entraTokenValidator = new EntraTokenValidator({
         clientId: mockClientId,
         tenantId: mockTenantId,
+      });
+
+      // Mock the shared utility to return payload with future iat
+      const payloadWithFutureIat = { ...mockToken.payload, iat: mockDate.getTime() / 1000 + 1 };
+      mockJwtUtils.verifyJwtSignature.mockReturnValue({
+        success: true,
+        data: payloadWithFutureIat,
       });
 
       const result = await entraTokenValidator.validateAccessToken(mockLogger, 'bearer-token');
@@ -391,14 +436,16 @@ describe('EntraTokenValidator', () => {
     });
 
     it('should return null if token expires-at value is missing', async () => {
-      mockVerifyToken.mockImplementation(() => ({
-        ...mockToken,
-        payload: { ...mockToken.payload, exp: undefined },
-      }));
-
       const entraTokenValidator = new EntraTokenValidator({
         clientId: mockClientId,
         tenantId: mockTenantId,
+      });
+
+      // Mock the shared utility to return payload with missing exp
+      const payloadWithoutExp = { ...mockToken.payload, exp: undefined };
+      mockJwtUtils.verifyJwtSignature.mockReturnValue({
+        success: true,
+        data: payloadWithoutExp,
       });
 
       const result = await entraTokenValidator.validateAccessToken(mockLogger, 'bearer-token');
@@ -409,14 +456,16 @@ describe('EntraTokenValidator', () => {
     });
 
     it('should return null if token expires-at value is in the past', async () => {
-      mockVerifyToken.mockImplementation(() => ({
-        ...mockToken,
-        payload: { ...mockToken.payload, exp: mockDate.getTime() / 1000 - 1 },
-      }));
-
       const entraTokenValidator = new EntraTokenValidator({
         clientId: mockClientId,
         tenantId: mockTenantId,
+      });
+
+      // Mock the shared utility to return payload with expired token
+      const payloadWithExpiredToken = { ...mockToken.payload, exp: mockDate.getTime() / 1000 - 1 };
+      mockJwtUtils.verifyJwtSignature.mockReturnValue({
+        success: true,
+        data: payloadWithExpiredToken,
       });
 
       const result = await entraTokenValidator.validateAccessToken(mockLogger, 'bearer-token');
@@ -427,14 +476,16 @@ describe('EntraTokenValidator', () => {
     });
 
     it('should return null if audience is missing', async () => {
-      mockVerifyToken.mockImplementation(() => ({
-        ...mockToken,
-        payload: { ...mockToken.payload, aud: undefined },
-      }));
-
       const entraTokenValidator = new EntraTokenValidator({
         clientId: mockClientId,
         tenantId: mockTenantId,
+      });
+
+      // Mock the shared utility to return payload with missing audience
+      const payloadWithoutAudience = { ...mockToken.payload, aud: undefined };
+      mockJwtUtils.verifyJwtSignature.mockReturnValue({
+        success: true,
+        data: payloadWithoutAudience,
       });
 
       const result = await entraTokenValidator.validateAccessToken(mockLogger, 'bearer-token');
@@ -447,14 +498,16 @@ describe('EntraTokenValidator', () => {
     });
 
     it('should return null if audience is unexpected', async () => {
-      mockVerifyToken.mockImplementation(() => ({
-        ...mockToken,
-        payload: { ...mockToken.payload, aud: 'api://wrong-client-id' },
-      }));
-
       const entraTokenValidator = new EntraTokenValidator({
         clientId: mockClientId,
         tenantId: mockTenantId,
+      });
+
+      // Mock the shared utility to return payload with wrong audience
+      const payloadWithWrongAudience = { ...mockToken.payload, aud: 'api://wrong-client-id' };
+      mockJwtUtils.verifyJwtSignature.mockReturnValue({
+        success: true,
+        data: payloadWithWrongAudience,
       });
 
       const result = await entraTokenValidator.validateAccessToken(mockLogger, 'bearer-token');
@@ -467,14 +520,16 @@ describe('EntraTokenValidator', () => {
     });
 
     it('should return null if issuer is missing', async () => {
-      mockVerifyToken.mockImplementation(() => ({
-        ...mockToken,
-        payload: { ...mockToken.payload, iss: undefined },
-      }));
-
       const entraTokenValidator = new EntraTokenValidator({
         clientId: mockClientId,
         tenantId: mockTenantId,
+      });
+
+      // Mock the shared utility to return payload with missing issuer
+      const payloadWithoutIssuer = { ...mockToken.payload, iss: undefined };
+      mockJwtUtils.verifyJwtSignature.mockReturnValue({
+        success: true,
+        data: payloadWithoutIssuer,
       });
 
       const result = await entraTokenValidator.validateAccessToken(mockLogger, 'bearer-token');
@@ -485,17 +540,19 @@ describe('EntraTokenValidator', () => {
     });
 
     it('should return null if issuer is unexpected', async () => {
-      mockVerifyToken.mockImplementation(() => ({
-        ...mockToken,
-        payload: {
-          ...mockToken.payload,
-          iss: 'https://login.microsoftonline.com/some-other-tenant/v2.0',
-        },
-      }));
-
       const entraTokenValidator = new EntraTokenValidator({
         clientId: mockClientId,
         tenantId: mockTenantId,
+      });
+
+      // Mock the shared utility to return payload with unexpected issuer
+      const payloadWithUnexpectedIssuer = {
+        ...mockToken.payload,
+        iss: 'https://login.microsoftonline.com/some-other-tenant/v2.0',
+      };
+      mockJwtUtils.verifyJwtSignature.mockReturnValue({
+        success: true,
+        data: payloadWithUnexpectedIssuer,
       });
 
       const result = await entraTokenValidator.validateAccessToken(mockLogger, 'bearer-token');

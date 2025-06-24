@@ -3,6 +3,9 @@ import jwksClient, { JwksClient } from 'jwks-rsa';
 
 import { ILogger } from '@microsoft/teams.common';
 
+import { JwksKeyRetriever } from './jwks-key-retriever';
+import { decodeJwt, verifyJwtSignature } from './jwt-utils';
+
 /**
  * Entra token validator parameters
  */
@@ -33,7 +36,8 @@ export class EntraTokenValidator {
   readonly tenantId: string;
   readonly clientId: string;
   readonly validIssuerTenantIds: string[];
-  private keyClient: JwksClient;
+  private keyRetriever: JwksKeyRetriever;
+  private jwksUri: string;
 
   constructor({ tenantId, clientId, options }: EntraTokenValidatorParams) {
     this.tenantId = tenantId;
@@ -45,9 +49,8 @@ export class EntraTokenValidator {
     const isMultiTenant = ['common', 'organizations', 'consumers'].some((val) => tenantId === val);
     this.validIssuerTenantIds = isMultiTenant ? options?.allowedTenantIds ?? [] : [this.tenantId];
 
-    this.keyClient = getJwksClient({
-      jwksUri: `https://login.microsoftonline.com/${tenantId}/discovery/v2.0/keys`,
-    });
+    this.jwksUri = `https://login.microsoftonline.com/${tenantId}/discovery/v2.0/keys`;
+    this.keyRetriever = new JwksKeyRetriever();
   }
 
   /**
@@ -62,55 +65,50 @@ export class EntraTokenValidator {
     rawAccessToken: string,
     requiredScope?: string
   ): Promise<jwt.Jwt | null> {
-    if (!rawAccessToken) {
-      logger.error('No token provided');
+    const decoded = decodeJwt(rawAccessToken);
+    if (!decoded.success) {
+      logger.error(decoded.error || 'No token provided');
+      return null;
+    }
+    if (!decoded.data.header.kid) {
+      logger.error('Token missing key ID (kid)');
       return null;
     }
 
-    const token = this.decodeToken(logger, rawAccessToken);
-    if (!token) {
-      logger.error('Failed to decode the access token');
+    const keyResult = await this.keyRetriever.getPublicKey(decoded.data.header.kid, this.jwksUri);
+    if (!keyResult.success) {
+      logger.error(keyResult.error || `Failed to find public key for the key identifier "${decoded.data.header?.kid}"`);
       return null;
     }
 
-    const publicKey = await this.getPublicKey(logger, token.header);
-    if (!publicKey) {
-      logger.error(`Failed to find public key for the key identifier "${token.header.kid}"`);
+    const verifyResult = verifyJwtSignature(rawAccessToken, keyResult.data!);
+    if (!verifyResult.success) {
+      logger.error(verifyResult.error || 'Failed to validate the token signature');
       return null;
     }
 
-    const validatedToken = this.validateTokenSignature(logger, rawAccessToken, publicKey);
-    if (!validatedToken) {
-      logger.error('Failed to validate the token signature');
-      return null;
-    }
-
-    if (!this.validateAccessTokenClaims(logger, validatedToken, requiredScope)) {
+    if (!this.validateAccessTokenClaims(logger, verifyResult.data!, requiredScope)) {
       logger.error('Failed to validate the access token claims');
       return null;
     }
 
-    return validatedToken;
+    // Return the token in the format expected by the existing interface
+    return {
+      header: decoded.data.header!,
+      payload: verifyResult.data!,
+      signature: 'verified',
+    } as jwt.Jwt;
   }
 
   getTokenPayload(token: jwt.Jwt): JwtPayload | null {
     return token.payload instanceof Object ? token.payload : null;
   }
 
-  /**
-   * Validates the token claims: that it's valid for the intended purpose, it's not expired, it has the right audience & issuer,
-   * it's issued for the requisite scope.
-   * @param {ILogger} logger The logger to use.
-   * @param {jwt.Jwt} token The token to validate.
-   * @param { string | undefined } requiredScope If provided, the token will only be considered valid if issued for this scope.
-   * @returns {boolean} True if the claims validation passed.
-   */
   private validateAccessTokenClaims(
     logger: ILogger,
-    token: jwt.Jwt,
+    payload: JwtPayload,
     requiredScope?: string
   ): boolean {
-    const payload = this.getTokenPayload(token);
     if (!payload) {
       logger.error('Invalid token payload.');
       return false;
@@ -163,59 +161,5 @@ export class EntraTokenValidator {
 
     // all checks passed
     return true;
-  }
-
-  /**
-   * Decodes an access token without verifying if the signature is valid.
-   * @param {ILogger} logger The logger to use.
-   * @param {string} rawAccessToken the raw access token.
-   * @returns {jwt.JWT | null} A decoded token if the raw access token is well formed.
-   */
-  private decodeToken(logger: ILogger, rawAccessToken: string): jwt.Jwt | null {
-    try {
-      return jwt.decode(rawAccessToken, { complete: true });
-    } catch (error) {
-      logger.error(error);
-      return null;
-    }
-  }
-
-  /**
-   * Gets the public key from the key identifier in a token header
-   * @param {ILogger} logger The logger to use.
-   * @param {jwt.JwtHeader} header the token header
-   * @returns {Promise<string | undefined>} the public key corresponding to the header key identifier, if available
-   */
-  private async getPublicKey(
-    logger: ILogger,
-    header: Pick<jwt.JwtHeader, 'kid'>
-  ): Promise<string | null> {
-    try {
-      const signingKey = await this.keyClient.getSigningKey(header.kid);
-      return signingKey.getPublicKey() ?? null;
-    } catch (error) {
-      logger.error(error);
-      return null;
-    }
-  }
-
-  /**
-   * Decodes the access token and verifies it against the public key
-   * @param {ILogger} logger The logger to use.
-   * @param {string} rawAccessToken the raw access token.
-   * @param {string} publicKey the public key to verify signature against.
-   * @returns {Promise<jwt.JWT | null>} A decoded token if the raw token is well formed and the signature is valid.
-   */
-  private validateTokenSignature(
-    logger: ILogger,
-    rawAccessToken: string,
-    publicKey: string
-  ): jwt.Jwt | null {
-    try {
-      return jwt.verify(rawAccessToken, publicKey, { complete: true });
-    } catch (error) {
-      logger.error(error);
-      return null;
-    }
   }
 }

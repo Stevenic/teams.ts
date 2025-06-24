@@ -19,6 +19,7 @@ import * as $http from '@microsoft/teams.common/http';
 import pkg from '../../../package.json';
 import { IActivityEvent, IErrorEvent } from '../../events';
 import { Manifest } from '../../manifest';
+import { BotTokenValidator, TokenValidationError } from '../../middleware';
 import {
   Dependency,
   Event,
@@ -31,7 +32,6 @@ import {
   Plugin,
 } from '../../types';
 
-import { BotTokenValidator, TokenValidationError } from './auth';
 
 import { HttpStream } from './stream';
 
@@ -243,7 +243,7 @@ export class HttpPlugin implements ISender {
       }
 
       try {
-        await this.botTokenValidator.validateToken(authorization, activity.serviceUrl);
+        await this.botTokenValidator.validateAccessToken(authorization, activity.serviceUrl);
         token = new JsonWebToken(authorization);
       } catch (error: any) {
         if (error instanceof TokenValidationError) {
