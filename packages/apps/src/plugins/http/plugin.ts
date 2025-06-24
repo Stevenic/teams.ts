@@ -12,10 +12,10 @@ import {
   IToken,
   JsonWebToken
 } from '@microsoft/teams.api';
+import { BotTokenValidator, TokenValidationError } from '@microsoft/teams.auth';
 import { ILogger } from '@microsoft/teams.common';
 import * as $http from '@microsoft/teams.common/http';
 
-import { BotTokenValidator, TokenValidationError } from '@microsoft/teams.auth';
 import pkg from '../../../package.json';
 import { IActivityEvent, IErrorEvent } from '../../events';
 import { Manifest } from '../../manifest';
@@ -257,7 +257,7 @@ export class HttpPlugin implements ISender {
         fromId: '',
         serviceUrl: activity.serviceUrl || '',
         isExpired: () => false,
-      }
+      };
     }
 
     this.pending[activity.id] = res;
