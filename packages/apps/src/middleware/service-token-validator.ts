@@ -1,8 +1,12 @@
+import {
+  verify,
+} from 'jsonwebtoken';
+
 import { Client, ILogger } from '@microsoft/teams.common';
 
 import { CacheManager } from './cache-manager';
 import { JwksKeyRetriever } from './jwks-key-retriever';
-import { decodeJwt, isSupportedAlgorithm, validateTokenTime, verifyJwtSignature } from './jwt-utils';
+import { decodeJwt, isSupportedAlgorithm, validateTokenTime } from './jwt-utils';
 
 
 const CACHE_TTL = 3600000; // 1 hour in milliseconds
@@ -137,24 +141,19 @@ export class ServiceTokenValidator {
       );
     }
 
-    const verifyResult = verifyJwtSignature(rawToken, keyResult.data!, {
+    const verifyResult = verify(rawToken, keyResult.data!, {
       algorithms: [algorithm],
+      complete: false,
       audience: this.appId,
       issuer: EXPECTED_ISSUER,
     });
-
-    if (!verifyResult.success) {
-      this.logger?.error(verifyResult.error);
-      throw new TokenValidationError(
-        TokenValidationErrorCode.SIGNATURE_VERIFICATION_FAILED,
-        'Signature verification failed'
-      );
+    if (typeof verifyResult === 'string') {
+      this.logger?.error(`Signature verification failed: ${verifyResult}`);
+      throw new TokenValidationError(TokenValidationErrorCode.SIGNATURE_VERIFICATION_FAILED, verifyResult);
     }
 
-    const verifiedPayload = verifyResult.data;
-
     if (serviceUrl) {
-      const tokenServiceUrl = verifiedPayload.serviceurl;
+      const tokenServiceUrl = verifyResult.serviceurl;
 
       if (!tokenServiceUrl) {
         this.logger?.error('Token missing serviceurl claim');

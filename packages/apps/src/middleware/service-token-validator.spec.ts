@@ -39,6 +39,7 @@ describe('ServiceTokenValidator', () => {
   let mockClientInstance: any;
   let mockKeyRetrieverInstance: any;
   let mockCacheManagerInstance: any;
+  let mockJsonwebtoken: jest.Mocked<typeof jwt>;
 
   const TEST_APP_ID = 'test-app-id';
   const TEST_KID = 'test-key-id';
@@ -111,9 +112,13 @@ describe('ServiceTokenValidator', () => {
       data: undefined,
     });
 
-    mockJwtUtils.verifyJwtSignature.mockReturnValue({
-      success: true,
-      data: VALID_PAYLOAD,
+    mockJsonwebtoken = jwt as jest.Mocked<typeof jwt>;
+
+    mockJsonwebtoken.verify.mockImplementation((token) => {
+      if (token === 'valid.jwt.token') {
+        return VALID_PAYLOAD;
+      }
+      throw new Error('Invalid token');
     });
 
     mockJwtUtils.isSupportedAlgorithm.mockReturnValue(true);
@@ -280,10 +285,9 @@ describe('ServiceTokenValidator', () => {
     });
 
     it('should throw TokenValidationError when JWT verification fails', async () => {
-      mockJwtUtils.verifyJwtSignature.mockReturnValue({
-        success: false,
-        error: 'JWT signature verification failed: Invalid signature',
-      });
+      mockJsonwebtoken.verify.mockImplementation(() =>
+        'JWT signature verification failed: Invalid signature',
+      );
 
       await expect(validator.validateAccessToken('valid.jwt.token')).rejects.toThrow(TokenValidationError);
       await expect(validator.validateAccessToken('valid.jwt.token')).rejects.toMatchObject({
@@ -304,7 +308,7 @@ describe('ServiceTokenValidator', () => {
 
       // Reset shared utility mocks to defaults
       mockJwtUtils.validateTokenTime.mockReturnValue({ success: true, data: undefined });
-      mockJwtUtils.verifyJwtSignature.mockReturnValue({ success: true, data: VALID_PAYLOAD });
+      mockJsonwebtoken.verify.mockImplementation(() => VALID_PAYLOAD);
       mockJwtUtils.isSupportedAlgorithm.mockReturnValue(true);
       mockKeyRetrieverInstance.getPublicKey.mockResolvedValue({ success: true, data: TEST_PUBLIC_KEY });
     });
@@ -398,7 +402,7 @@ describe('ServiceTokenValidator', () => {
       });
 
       mockJwtUtils.validateTokenTime.mockReturnValue({ success: true, data: undefined });
-      mockJwtUtils.verifyJwtSignature.mockReturnValue({ success: true, data: VALID_PAYLOAD });
+      mockJsonwebtoken.verify.mockImplementation(() => VALID_PAYLOAD);
       mockJwtUtils.isSupportedAlgorithm.mockReturnValue(true);
       mockKeyRetrieverInstance.getPublicKey.mockResolvedValue({ success: true, data: TEST_PUBLIC_KEY });
     });
@@ -410,10 +414,7 @@ describe('ServiceTokenValidator', () => {
         serviceUrl: 'https://expected.service.url/',
         setup: () => {
           const payloadWithoutServiceUrl = { ...VALID_PAYLOAD, serviceurl: undefined };
-          mockJwtUtils.verifyJwtSignature.mockReturnValue({
-            success: true,
-            data: payloadWithoutServiceUrl,
-          });
+          mockJsonwebtoken.verify.mockImplementation(() => payloadWithoutServiceUrl);
         },
         expectedCode: TokenValidationErrorCode.MISSING_SERVICE_URL,
       },
@@ -459,7 +460,7 @@ describe('ServiceTokenValidator', () => {
       });
 
       mockJwtUtils.validateTokenTime.mockReturnValue({ success: true, data: undefined });
-      mockJwtUtils.verifyJwtSignature.mockReturnValue({ success: true, data: VALID_PAYLOAD });
+      mockJsonwebtoken.verify.mockImplementation(() => VALID_PAYLOAD);
       mockJwtUtils.isSupportedAlgorithm.mockReturnValue(true);
       mockKeyRetrieverInstance.getPublicKey.mockResolvedValue({ success: true, data: TEST_PUBLIC_KEY });
     });
@@ -512,7 +513,7 @@ describe('ServiceTokenValidator', () => {
       });
 
       mockJwtUtils.validateTokenTime.mockReturnValue({ success: true, data: undefined });
-      mockJwtUtils.verifyJwtSignature.mockReturnValue({ success: true, data: VALID_PAYLOAD });
+      mockJsonwebtoken.verify.mockImplementation(() => VALID_PAYLOAD);
       mockJwtUtils.isSupportedAlgorithm.mockReturnValue(true);
       mockKeyRetrieverInstance.getPublicKey.mockResolvedValue({ success: true, data: TEST_PUBLIC_KEY });
     });

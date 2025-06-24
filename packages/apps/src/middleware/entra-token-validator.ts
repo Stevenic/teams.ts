@@ -4,7 +4,7 @@ import jwksClient, { JwksClient } from 'jwks-rsa';
 import { ILogger } from '@microsoft/teams.common';
 
 import { JwksKeyRetriever } from './jwks-key-retriever';
-import { decodeJwt, verifyJwtSignature } from './jwt-utils';
+import { decodeJwt } from './jwt-utils';
 
 /**
  * Entra token validator parameters
@@ -65,9 +65,14 @@ export class EntraTokenValidator {
     rawAccessToken: string,
     requiredScope?: string
   ): Promise<jwt.Jwt | null> {
+    if (!rawAccessToken) {
+      logger.error('No token provided');
+      return null;
+    }
+
     const decoded = decodeJwt(rawAccessToken);
     if (!decoded.success) {
-      logger.error(decoded.error || 'No token provided');
+      logger.error(decoded.error || 'Failed to decode token');
       return null;
     }
     if (!decoded.data.header.kid) {
@@ -81,23 +86,19 @@ export class EntraTokenValidator {
       return null;
     }
 
-    const verifyResult = verifyJwtSignature(rawAccessToken, keyResult.data!);
-    if (!verifyResult.success) {
-      logger.error(verifyResult.error || 'Failed to validate the token signature');
+    const verifyResult = this.validateTokenSignature(logger, rawAccessToken, keyResult.data);
+    if (!verifyResult || typeof verifyResult.payload === 'string') {
+      logger.error('Failed to verify token signature');
       return null;
     }
 
-    if (!this.validateAccessTokenClaims(logger, verifyResult.data!, requiredScope)) {
+    if (!this.validateAccessTokenClaims(logger, verifyResult.payload, requiredScope)) {
       logger.error('Failed to validate the access token claims');
       return null;
     }
 
     // Return the token in the format expected by the existing interface
-    return {
-      header: decoded.data.header!,
-      payload: verifyResult.data!,
-      signature: 'verified',
-    } as jwt.Jwt;
+    return verifyResult;
   }
 
   getTokenPayload(token: jwt.Jwt): JwtPayload | null {
@@ -161,5 +162,25 @@ export class EntraTokenValidator {
 
     // all checks passed
     return true;
+  }
+
+  /**
+   * Decodes the access token and verifies it against the public key
+   * @param {ILogger} logger The logger to use.
+   * @param {string} rawAccessToken the raw access token.
+   * @param {string} publicKey the public key to verify signature against.
+   * @returns {Promise<jwt.JWT | null>} A decoded token if the raw token is well formed and the signature is valid.
+   */
+  private validateTokenSignature(
+    logger: ILogger,
+    rawAccessToken: string,
+    publicKey: string
+  ): jwt.Jwt | null {
+    try {
+      return jwt.verify(rawAccessToken, publicKey, { complete: true });
+    } catch (error) {
+      logger.error(error);
+      return null;
+    }
   }
 }

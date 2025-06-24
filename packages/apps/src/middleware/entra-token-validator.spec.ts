@@ -62,6 +62,7 @@ describe('getJwksClient', () => {
 
 describe('EntraTokenValidator', () => {
   const mockJwtUtils = jwtUtils as jest.Mocked<typeof jwtUtils>;
+  const mockJsonwebtoken = jwt as jest.Mocked<typeof jwt>;
   const MockedJwksKeyRetriever = JwksKeyRetriever as jest.MockedClass<typeof JwksKeyRetriever>;
   let mockKeyRetrieverInstance: any;
   let mockVerifyToken: jest.Mock;
@@ -84,10 +85,7 @@ describe('EntraTokenValidator', () => {
       },
     });
 
-    mockJwtUtils.verifyJwtSignature.mockReturnValue({
-      success: true,
-      data: mockToken.payload,
-    });
+    mockJsonwebtoken.verify.mockImplementation(() => mockToken);
 
     mockJwtUtils.validateTokenTime.mockReturnValue({
       success: true,
@@ -264,9 +262,8 @@ describe('EntraTokenValidator', () => {
     });
 
     it('should return null if token signature can not be verified', async () => {
-      mockJwtUtils.verifyJwtSignature.mockReturnValue({
-        success: false,
-        error: 'JWT signature verification failed: Token signature verification error',
+      mockJsonwebtoken.verify.mockImplementation(() => {
+        throw new Error('JWT signature verification failed: Token signature verification error');
       });
 
       const entraTokenValidator = new EntraTokenValidator({
@@ -276,8 +273,9 @@ describe('EntraTokenValidator', () => {
 
       const result = await entraTokenValidator.validateAccessToken(mockLogger, 'bearer-token');
       expect(result).toBeNull();
-      expect(mockLogger.error).toHaveBeenCalledTimes(1);
-      expect(mockLogger.error).toHaveBeenCalledWith('JWT signature verification failed: Token signature verification error');
+      expect(mockLogger.error).toHaveBeenCalledTimes(2);
+      expect(mockLogger.error).toHaveBeenCalledWith(new Error('JWT signature verification failed: Token signature verification error'));
+      expect(mockLogger.error).toHaveBeenCalledWith('Failed to verify token signature');
     });
   });
 
@@ -294,11 +292,11 @@ describe('EntraTokenValidator', () => {
         payload: expectedPayload,
       };
 
-      // Mock the shared utility to return the expected payload
-      mockJwtUtils.verifyJwtSignature.mockReturnValue({
-        success: true,
-        data: expectedPayload,
-      });
+      // Mock jwt.verify to return the complete token with expected payload
+      mockJsonwebtoken.verify.mockImplementation(() => ({
+        ...mockToken,
+        payload: expectedPayload,
+      }));
 
       const entraTokenValidator = new EntraTokenValidator({
         clientId: mockClientId,
@@ -325,11 +323,11 @@ describe('EntraTokenValidator', () => {
         payload: expectedPayload,
       };
 
-      // Mock the shared utility to return the expected payload
-      mockJwtUtils.verifyJwtSignature.mockReturnValue({
-        success: true,
-        data: expectedPayload,
-      });
+      // Mock jwt.verify to return the complete token with expected payload
+      mockJsonwebtoken.verify.mockImplementation(() => ({
+        ...mockToken,
+        payload: expectedPayload,
+      }));
 
       const entraTokenValidator = new EntraTokenValidator({
         clientId: mockClientId,
@@ -358,11 +356,11 @@ describe('EntraTokenValidator', () => {
           payload: expectedPayload,
         };
 
-        // Mock the shared utility to return the expected payload
-        mockJwtUtils.verifyJwtSignature.mockReturnValue({
-          success: true,
-          data: expectedPayload,
-        });
+        // Mock jwt.verify to return the complete token with expected payload
+        mockJsonwebtoken.verify.mockImplementation(() => ({
+          ...mockToken,
+          payload: expectedPayload,
+        }));
 
         const entraTokenValidator = new EntraTokenValidator({
           clientId: mockClientId,
@@ -382,11 +380,11 @@ describe('EntraTokenValidator', () => {
         tenantId: mockTenantId,
       });
 
-      // Mock the shared utility to return success but with undefined payload
-      mockJwtUtils.verifyJwtSignature.mockReturnValue({
-        success: true,
-        data: undefined as any, // This simulates missing payload
-      });
+      // Mock jwt.verify to return token with undefined payload
+      mockJsonwebtoken.verify.mockImplementation(() => ({
+        ...mockToken,
+        payload: undefined as any,
+      }));
 
       const result = await entraTokenValidator.validateAccessToken(mockLogger, 'bearer-token');
       expect(result).toBeNull();
@@ -403,10 +401,10 @@ describe('EntraTokenValidator', () => {
 
       // Mock the shared utility to return payload with missing iat
       const payloadWithoutIat = { ...mockToken.payload, iat: undefined };
-      mockJwtUtils.verifyJwtSignature.mockReturnValue({
-        success: true,
-        data: payloadWithoutIat,
-      });
+      mockJsonwebtoken.verify.mockImplementation(() => ({
+        ...mockToken,
+        payload: payloadWithoutIat,
+      }));
 
       const result = await entraTokenValidator.validateAccessToken(mockLogger, 'bearer-token');
       expect(result).toBeNull();
@@ -423,10 +421,10 @@ describe('EntraTokenValidator', () => {
 
       // Mock the shared utility to return payload with future iat
       const payloadWithFutureIat = { ...mockToken.payload, iat: mockDate.getTime() / 1000 + 1 };
-      mockJwtUtils.verifyJwtSignature.mockReturnValue({
-        success: true,
-        data: payloadWithFutureIat,
-      });
+      mockJsonwebtoken.verify.mockImplementation(() => ({
+        ...mockToken,
+        payload: payloadWithFutureIat,
+      }));
 
       const result = await entraTokenValidator.validateAccessToken(mockLogger, 'bearer-token');
       expect(result).toBeNull();
@@ -443,10 +441,10 @@ describe('EntraTokenValidator', () => {
 
       // Mock the shared utility to return payload with missing exp
       const payloadWithoutExp = { ...mockToken.payload, exp: undefined };
-      mockJwtUtils.verifyJwtSignature.mockReturnValue({
-        success: true,
-        data: payloadWithoutExp,
-      });
+      mockJsonwebtoken.verify.mockImplementation(() => ({
+        ...mockToken,
+        payload: payloadWithoutExp,
+      }));
 
       const result = await entraTokenValidator.validateAccessToken(mockLogger, 'bearer-token');
       expect(result).toBeNull();
@@ -463,10 +461,10 @@ describe('EntraTokenValidator', () => {
 
       // Mock the shared utility to return payload with expired token
       const payloadWithExpiredToken = { ...mockToken.payload, exp: mockDate.getTime() / 1000 - 1 };
-      mockJwtUtils.verifyJwtSignature.mockReturnValue({
-        success: true,
-        data: payloadWithExpiredToken,
-      });
+      mockJsonwebtoken.verify.mockImplementation(() => ({
+        ...mockToken,
+        payload: payloadWithExpiredToken,
+      }));
 
       const result = await entraTokenValidator.validateAccessToken(mockLogger, 'bearer-token');
       expect(result).toBeNull();
@@ -483,10 +481,10 @@ describe('EntraTokenValidator', () => {
 
       // Mock the shared utility to return payload with missing audience
       const payloadWithoutAudience = { ...mockToken.payload, aud: undefined };
-      mockJwtUtils.verifyJwtSignature.mockReturnValue({
-        success: true,
-        data: payloadWithoutAudience,
-      });
+      mockJsonwebtoken.verify.mockImplementation(() => ({
+        ...mockToken,
+        payload: payloadWithoutAudience,
+      }));
 
       const result = await entraTokenValidator.validateAccessToken(mockLogger, 'bearer-token');
       expect(result).toBeNull();
@@ -505,10 +503,10 @@ describe('EntraTokenValidator', () => {
 
       // Mock the shared utility to return payload with wrong audience
       const payloadWithWrongAudience = { ...mockToken.payload, aud: 'api://wrong-client-id' };
-      mockJwtUtils.verifyJwtSignature.mockReturnValue({
-        success: true,
-        data: payloadWithWrongAudience,
-      });
+      mockJsonwebtoken.verify.mockImplementation(() => ({
+        ...mockToken,
+        payload: payloadWithWrongAudience,
+      }));
 
       const result = await entraTokenValidator.validateAccessToken(mockLogger, 'bearer-token');
       expect(result).toBeNull();
@@ -527,10 +525,10 @@ describe('EntraTokenValidator', () => {
 
       // Mock the shared utility to return payload with missing issuer
       const payloadWithoutIssuer = { ...mockToken.payload, iss: undefined };
-      mockJwtUtils.verifyJwtSignature.mockReturnValue({
-        success: true,
-        data: payloadWithoutIssuer,
-      });
+      mockJsonwebtoken.verify.mockImplementation(() => ({
+        ...mockToken,
+        payload: payloadWithoutIssuer,
+      }));
 
       const result = await entraTokenValidator.validateAccessToken(mockLogger, 'bearer-token');
       expect(result).toBeNull();
@@ -550,10 +548,10 @@ describe('EntraTokenValidator', () => {
         ...mockToken.payload,
         iss: 'https://login.microsoftonline.com/some-other-tenant/v2.0',
       };
-      mockJwtUtils.verifyJwtSignature.mockReturnValue({
-        success: true,
-        data: payloadWithUnexpectedIssuer,
-      });
+      mockJsonwebtoken.verify.mockImplementation(() => ({
+        ...mockToken,
+        payload: payloadWithUnexpectedIssuer,
+      }));
 
       const result = await entraTokenValidator.validateAccessToken(mockLogger, 'bearer-token');
       expect(result).toBeNull();

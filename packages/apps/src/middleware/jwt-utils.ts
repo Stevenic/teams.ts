@@ -2,8 +2,7 @@ import {
   Algorithm,
   decode,
   JwtHeader,
-  JwtPayload,
-  verify,
+  JwtPayload
 } from 'jsonwebtoken';
 
 import { Result } from '../types/result';
@@ -14,7 +13,6 @@ export type JwtDecodeData = {
 };
 
 export type JwtDecodeResult = Result<JwtDecodeData>;
-export type JwtVerifyResult = Result<JwtPayload>;
 export type TokenTimeValidationResult = Result<void>;
 
 // https://github.com/auth0/node-jsonwebtoken#algorithms-supported
@@ -66,40 +64,6 @@ export function decodeJwt(rawToken: string): JwtDecodeResult {
     return {
       success: false,
       error: `Token malformed: ${error}`,
-    };
-  }
-}
-
-export function verifyJwtSignature(
-  rawToken: string,
-  publicKey: string,
-  options?: {
-    algorithms?: Algorithm[];
-    audience?: string;
-    issuer?: string;
-  }
-): JwtVerifyResult {
-  try {
-    const verifiedToken = verify(rawToken, publicKey, {
-      complete: false,
-      ...options,
-    });
-
-    if (typeof verifiedToken === 'string' || !verifiedToken) {
-      return {
-        success: false,
-        error: 'Invalid token verification result',
-      };
-    }
-
-    return {
-      success: true,
-      data: verifiedToken,
-    };
-  } catch (error) {
-    return {
-      success: false,
-      error: `JWT signature verification failed: ${error}`,
     };
   }
 }
