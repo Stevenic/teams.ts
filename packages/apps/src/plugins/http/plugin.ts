@@ -252,6 +252,7 @@ export class HttpPlugin implements ISender {
         validateServiceUrl: { expectedServiceUrl: activity.serviceUrl }
       } : undefined);
       if (validationResult) {
+        this.logger.debug(`validated service token for activity ${activity.id}`);
         token = new JsonWebToken(authorization);
       } else {
         res.status(401).send('Invalid token');
