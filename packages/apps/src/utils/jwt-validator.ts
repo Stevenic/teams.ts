@@ -93,7 +93,13 @@ export class JwtValidator {
           return;
         }
 
-        const payload = decoded as JwtPayload;
+        if (!decoded || typeof decoded !== 'object') {
+          this.logger?.error('Decoded token is not a valid object:', decoded);
+          resolve(null);
+          return;
+        }
+
+        const payload = decoded;
 
         try {
           this.performCustomValidations(payload, overrideOptions);
