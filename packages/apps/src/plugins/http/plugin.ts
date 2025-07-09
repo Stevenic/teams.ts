@@ -120,11 +120,9 @@ export class HttpPlugin implements ISender {
   onInit() {
     if (process.env.NODE_ENV !== 'local' && this.credentials?.clientId) {
       this.logger.debug(`initializing service token validator for ${this.credentials.clientId}`);
-      // Use tenantId from credentials, fallback to 'botframework' if not provided
-      const tenantId = this.credentials.tenantId || 'botframework';
       this.serviceTokenValidator = createServiceTokenValidator(
         this.credentials.clientId,
-        tenantId,
+        this.credentials.tenantId,
         undefined,
         this.logger
       );

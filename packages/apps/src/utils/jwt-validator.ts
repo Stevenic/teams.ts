@@ -18,7 +18,7 @@ export interface IJwtValidationOptions {
    * This may be 'common', 'organizations', 'consumers' for multi-tenant apps,
    * or a specific tenant ID for single-tenant apps.
    */
-  tenantId: string;
+  tenantId?: string;
 
   /**
    * Optional: Audience validation options
@@ -186,6 +186,10 @@ export class JwtValidator {
       return;
     }
 
+    if (!this.options.tenantId) {
+      return;
+    }
+
     const isMultiTenant = ['common', 'organizations', 'consumers'].includes(this.options.tenantId);
     const allowedTenantIds = [];
     if (isMultiTenant) {
@@ -274,7 +278,7 @@ export const createEntraTokenValidator = (
 
 export const createServiceTokenValidator = (
   appId: string,
-  tenantId: string,
+  tenantId?: string,
   serviceUrl?: string,
   logger?: ILogger
 ) => {
