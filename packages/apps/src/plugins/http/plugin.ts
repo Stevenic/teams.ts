@@ -19,7 +19,6 @@ import * as $http from '@microsoft/teams.common/http';
 import pkg from '../../../package.json';
 import { IActivityEvent, IErrorEvent } from '../../events';
 import { Manifest } from '../../manifest';
-import { createServiceTokenValidator, JwtValidator } from '../../middleware/configurable-jwt-validator';
 import {
   Dependency,
   Event,
@@ -31,6 +30,7 @@ import {
   Logger,
   Plugin,
 } from '../../types';
+import { createServiceTokenValidator, JwtValidator } from '../../utils/jwt-validator';
 
 
 import { HttpStream } from './stream';

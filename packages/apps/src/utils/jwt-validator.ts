@@ -3,7 +3,7 @@ import jwksRsa, { JwksClient, SigningKey } from 'jwks-rsa';
 
 import { ILogger } from '@microsoft/teams.common';
 
-import { asserts } from '../utils';
+import { asserts } from '.';
 
 const DEFAULTS = {
   validateAudience: ['clientId'] as const,

@@ -1,6 +1,6 @@
 import jwt from 'jsonwebtoken';
 
-import { JwtValidator, createEntraTokenValidator, createServiceTokenValidator } from './configurable-jwt-validator';
+import { JwtValidator, createEntraTokenValidator, createServiceTokenValidator } from './jwt-validator';
 
 // Mock dependencies
 jest.mock('jsonwebtoken', () => ({
