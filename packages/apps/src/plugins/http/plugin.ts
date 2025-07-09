@@ -19,7 +19,7 @@ import * as $http from '@microsoft/teams.common/http';
 import pkg from '../../../package.json';
 import { IActivityEvent, IErrorEvent } from '../../events';
 import { Manifest } from '../../manifest';
-import { ServiceTokenValidator, TokenValidationError } from '../../middleware';
+import { createServiceTokenValidator, JwtValidator } from '../../middleware/configurable-jwt-validator';
 import {
   Dependency,
   Event,
@@ -88,7 +88,7 @@ export class HttpPlugin implements ISender {
 
   protected express: express.Application;
   protected pending: Record<string, express.Response> = {};
-  protected serviceTokenValidator: ServiceTokenValidator | null = null;
+  protected serviceTokenValidator: JwtValidator | null = null;
 
   constructor(server?: http.Server) {
     this.express = express();
@@ -120,7 +120,14 @@ export class HttpPlugin implements ISender {
   onInit() {
     if (process.env.NODE_ENV !== 'local' && this.credentials?.clientId) {
       this.logger.debug(`initializing service token validator for ${this.credentials.clientId}`);
-      this.serviceTokenValidator = new ServiceTokenValidator(this.credentials.clientId, this.logger);
+      // Use tenantId from credentials, fallback to 'botframework' if not provided
+      const tenantId = this.credentials.tenantId || 'botframework';
+      this.serviceTokenValidator = createServiceTokenValidator(
+        this.credentials.clientId,
+        tenantId,
+        undefined,
+        this.logger
+      );
     } else {
       this.logger.debug('no client id found, skipping service token validator');
     }
@@ -242,15 +249,15 @@ export class HttpPlugin implements ISender {
         return;
       }
 
-      try {
-        await this.serviceTokenValidator.validateAccessToken(authorization, activity.serviceUrl);
+      // Use cached validator with per-request service URL validation
+      const validationResult = await this.serviceTokenValidator.validateAccessToken(authorization, activity.serviceUrl ? {
+        validateServiceUrl: { expectedServiceUrl: activity.serviceUrl }
+      } : undefined);
+      if (validationResult) {
         token = new JsonWebToken(authorization);
-      } catch (error: any) {
-        if (error instanceof TokenValidationError) {
-          res.status(401).send(error.message);
-          return;
-        }
-        throw error;
+      } else {
+        res.status(401).send('Invalid token');
+        return;
       }
     } else {
       token = {
