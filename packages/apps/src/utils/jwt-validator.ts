@@ -85,7 +85,11 @@ export class JwtValidator {
         clockTolerance: this.options.clockTolerance ?? DEFAULTS.clockTolerance
       };
 
-
+      this.logger?.debug('Validating JWT token with options:', {
+        audience: verifyOptions.audience,
+        clockTolerance: verifyOptions.clockTolerance,
+        algorithms: verifyOptions.algorithms
+      });
       jwt.verify(rawToken, this.getSigningKey, verifyOptions, (err, decoded) => {
         if (err) {
           this.logger?.error('JWT verification failed:', err);
@@ -98,11 +102,13 @@ export class JwtValidator {
           resolve(null);
           return;
         }
+        this.logger?.debug('JWT verification succeeded');
 
         const payload = decoded;
 
         try {
           this.performCustomValidations(payload, overrideOptions);
+          this.logger?.debug('Custom validations passed for token');
           resolve(payload);
         } catch (validationError) {
           this.logger?.error('Custom validation failed:', validationError);
@@ -137,7 +143,7 @@ export class JwtValidator {
             jwksUri: this.options.jwksUriOptions.uri,
           }));
 
-          return this.jwksCache.get(`${this.options.tenantId}`)!;
+          return this.jwksCache.get(this.options.jwksUriOptions.uri)!;
         }
       default:
         asserts.assertNever(this.options.jwksUriOptions, `Unknown JWKS URI options type: ${this.options.jwksUriOptions}`);
