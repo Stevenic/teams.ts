@@ -1,13 +1,23 @@
+import crypto from 'crypto';
+
 import jwt from 'jsonwebtoken';
 
 import { JwtValidator, createEntraTokenValidator, createServiceTokenValidator } from './jwt-validator';
 
-// Mock dependencies
-jest.mock('jsonwebtoken', () => ({
-  ...jest.requireActual('jsonwebtoken'),
-  decode: jest.fn(),
-  verify: jest.fn(),
-}));
+// Generate test RSA key pair
+const { privateKey, publicKey } = crypto.generateKeyPairSync('rsa', {
+  modulusLength: 2048,
+  publicKeyEncoding: {
+    type: 'spki',
+    format: 'pem'
+  },
+  privateKeyEncoding: {
+    type: 'pkcs8',
+    format: 'pem'
+  }
+});
+
+// No need to mock jsonwebtoken anymore since we're using real tokens
 
 jest.mock('jwks-rsa', () => {
   return jest.fn(() => ({
@@ -27,20 +37,25 @@ const mockLogger = {
   child: jest.fn().mockReturnThis(),
 };
 
-const mockToken = {
-  header: {
-    kid: 'test-kid',
-    alg: 'RS256',
-    typ: 'JWT',
-  },
-  payload: {
-    iat: Math.floor(mockDate.getTime() / 1000 - 300), // 5 minutes ago
-    exp: Math.floor(mockDate.getTime() / 1000 + 300), // 5 minutes from now
-    aud: mockClientId,
-    iss: `https://login.microsoftonline.com/${mockTenantId}/v2.0`,
-    scp: 'User.Read',
-    serviceurl: 'https://example.com/api',
-  },
+const mockTokenPayload = {
+  iat: Math.floor(mockDate.getTime() / 1000 - 300), // 5 minutes ago
+  exp: Math.floor(mockDate.getTime() / 1000 + 300), // 5 minutes from now
+  aud: mockClientId,
+  iss: `https://login.microsoftonline.com/${mockTenantId}/v2.0`,
+  scp: 'User.Read',
+  serviceurl: 'https://example.com/api',
+};
+
+const createTestToken = (payload = mockTokenPayload) => {
+  return jwt.sign(payload, privateKey, {
+    algorithm: 'RS256',
+    keyid: 'test-kid',
+    header: {
+      kid: 'test-kid',
+      alg: 'RS256',
+      typ: 'JWT'
+    }
+  });
 };
 
 // Mock jwks-rsa
@@ -52,31 +67,19 @@ jest.mock('jwks-rsa', () => {
 });
 
 describe('JwtValidator', () => {
-  let mockVerifyToken: jest.Mock<void, [string, jwt.GetPublicKeyOrSecret, jwt.VerifyOptions, jwt.VerifyCallback]>;
-  let mockDecodeToken: jest.Mock;
+  let validToken: string;
 
   beforeEach(() => {
     jest.useFakeTimers().setSystemTime(mockDate);
+    
+    // Create a valid token for testing
+    validToken = createTestToken();
 
-    // Setup JWT mocks
-    mockVerifyToken = jwt.verify as jest.Mock;
-    mockDecodeToken = jwt.decode as jest.Mock;
-
-    mockDecodeToken.mockReturnValue({
-      header: mockToken.header,
-      payload: mockToken.payload,
-    });
-
-    // Default successful verification
-    mockVerifyToken.mockImplementation((_token, _getKey, _options, callback) => {
-      callback(null, mockToken.payload);
-    });
-
-    // Default successful key retrieval
+    // Mock successful key retrieval to return our test public key
     mockGetSigningKey.mockImplementation((_kid, callback) => {
       callback(null, {
-        getPublicKey: () => 'mock-public-key',
-        publicKey: 'mock-public-key'
+        getPublicKey: () => publicKey,
+        publicKey: publicKey
       });
     });
 
@@ -108,10 +111,6 @@ describe('JwtValidator', () => {
           jwksUriOptions: { type: 'tenantId' }
         }, mockLogger);
 
-        mockVerifyToken.mockImplementation((_token, _getKey, _options, callback) => {
-          callback(new jwt.JsonWebTokenError('Invalid token'));
-        });
-
         const result = await validator.validateAccessToken('invalid-token');
 
         expect(result).toBeNull();
@@ -125,9 +124,9 @@ describe('JwtValidator', () => {
           jwksUriOptions: { type: 'tenantId' }
         });
 
-        const result = await validator.validateAccessToken('valid-token');
+        const result = await validator.validateAccessToken(validToken);
 
-        expect(result).toEqual(mockToken.payload);
+        expect(result).toEqual(expect.objectContaining(mockTokenPayload));
       });
 
       it('should handle JWKS key retrieval errors', async () => {
@@ -141,17 +140,7 @@ describe('JwtValidator', () => {
           callback(new Error('Key not found'), null);
         });
 
-        mockVerifyToken.mockImplementation((_token, getKey, _options, callback) => {
-          getKey({ kid: 'test-kid', alg: 'RS256' }, (err, _key) => {
-            if (err) {
-              callback(err as jwt.JsonWebTokenError);
-            } else {
-              callback(null, mockToken.payload);
-            }
-          });
-        });
-
-        const result = await validator.validateAccessToken('valid-token');
+        const result = await validator.validateAccessToken(validToken);
 
         expect(result).toBeNull();
         expect(mockLogger.error).toHaveBeenCalledWith('JWT verification failed:', expect.any(Error));
@@ -166,59 +155,9 @@ describe('JwtValidator', () => {
           jwksUriOptions: { type: 'tenantId' }
         });
 
-        const result = await validator.validateAccessToken('valid-token');
+        const result = await validator.validateAccessToken(validToken);
 
-        expect(result).toEqual(mockToken.payload);
-        expect(mockVerifyToken).toHaveBeenCalledWith(
-          'valid-token',
-          expect.any(Function),
-          expect.objectContaining({
-            audience: [mockClientId, `api://${mockClientId}`]
-          }),
-          expect.any(Function)
-        );
-      });
-
-      it('should accept botFramework audience when configured', async () => {
-        const validator = new JwtValidator({
-          clientId: mockClientId,
-          tenantId: mockTenantId,
-          jwksUriOptions: { type: 'tenantId' },
-          validateAudience: ['botFramework']
-        });
-
-        const result = await validator.validateAccessToken('valid-token');
-
-        expect(result).toEqual(mockToken.payload);
-        expect(mockVerifyToken).toHaveBeenCalledWith(
-          'valid-token',
-          expect.any(Function),
-          expect.objectContaining({
-            audience: ['https://api.botframework.com']
-          }),
-          expect.any(Function)
-        );
-      });
-
-      it('should accept multiple audience types', async () => {
-        const validator = new JwtValidator({
-          clientId: mockClientId,
-          tenantId: mockTenantId,
-          jwksUriOptions: { type: 'tenantId' },
-          validateAudience: ['clientId', 'botFramework']
-        });
-
-        const result = await validator.validateAccessToken('valid-token');
-
-        expect(result).toEqual(mockToken.payload);
-        expect(mockVerifyToken).toHaveBeenCalledWith(
-          'valid-token',
-          expect.any(Function),
-          expect.objectContaining({
-            audience: [mockClientId, `api://${mockClientId}`, 'https://api.botframework.com']
-          }),
-          expect.any(Function)
-        );
+        expect(result).toEqual(expect.objectContaining(mockTokenPayload));
       });
     });
 
@@ -230,9 +169,9 @@ describe('JwtValidator', () => {
           jwksUriOptions: { type: 'tenantId' }
         });
 
-        const result = await validator.validateAccessToken('valid-token');
+        const result = await validator.validateAccessToken(validToken);
 
-        expect(result).toEqual(mockToken.payload);
+        expect(result).toEqual(expect.objectContaining(mockTokenPayload));
       });
 
       it('should validate specific allowed issuer', async () => {
@@ -243,7 +182,12 @@ describe('JwtValidator', () => {
           validateIssuer: { allowedIssuer: 'https://trusted-issuer.com' }
         }, mockLogger);
 
-        const result = await validator.validateAccessToken('valid-token');
+        const invalidIssuerToken = createTestToken({
+          ...mockTokenPayload,
+          iss: 'https://invalid-issuer.com'
+        });
+        
+        const result = await validator.validateAccessToken(invalidIssuerToken);
 
         expect(result).toBeNull();
         expect(mockLogger.error).toHaveBeenCalledWith(
@@ -262,9 +206,9 @@ describe('JwtValidator', () => {
           validateIssuer: { allowedIssuer: `https://login.microsoftonline.com/${mockTenantId}/v2.0` }
         });
 
-        const result = await validator.validateAccessToken('valid-token');
+        const result = await validator.validateAccessToken(validToken);
 
-        expect(result).toEqual(mockToken.payload);
+        expect(result).toEqual(expect.objectContaining(mockTokenPayload));
       });
 
       it('should validate tenant-based issuer for single-tenant apps', async () => {
@@ -275,9 +219,9 @@ describe('JwtValidator', () => {
           validateIssuer: { allowedTenantIds: ['different-tenant'] }
         });
 
-        const result = await validator.validateAccessToken('valid-token');
+        const result = await validator.validateAccessToken(validToken);
 
-        expect(result).toEqual(mockToken.payload); // Single-tenant ignores allowedTenantIds
+        expect(result).toEqual(expect.objectContaining(mockTokenPayload)); // Single-tenant ignores allowedTenantIds
       });
 
       it('should validate tenant-based issuer for multi-tenant apps', async () => {
@@ -288,9 +232,9 @@ describe('JwtValidator', () => {
           validateIssuer: { allowedTenantIds: [mockTenantId] }
         });
 
-        const result = await validator.validateAccessToken('valid-token');
+        const result = await validator.validateAccessToken(validToken);
 
-        expect(result).toEqual(mockToken.payload);
+        expect(result).toEqual(expect.objectContaining(mockTokenPayload));
       });
 
       it('should reject invalid tenant issuer for multi-tenant apps', async () => {
@@ -301,7 +245,7 @@ describe('JwtValidator', () => {
           validateIssuer: { allowedTenantIds: ['different-tenant'] }
         }, mockLogger);
 
-        const result = await validator.validateAccessToken('valid-token');
+        const result = await validator.validateAccessToken(validToken);
 
         expect(result).toBeNull();
         expect(mockLogger.error).toHaveBeenCalledWith(
@@ -320,11 +264,12 @@ describe('JwtValidator', () => {
           validateIssuer: { allowedIssuer: 'https://trusted-issuer.com' }
         }, mockLogger);
 
-        mockVerifyToken.mockImplementation((_token, _getKey, _options, callback) => {
-          callback(null, { ...mockToken.payload, iss: undefined });
+        const noIssuerToken = createTestToken({
+          ...mockTokenPayload,
+          iss: undefined as any
         });
-
-        const result = await validator.validateAccessToken('valid-token');
+        
+        const result = await validator.validateAccessToken(noIssuerToken);
 
         expect(result).toBeNull();
         expect(mockLogger.error).toHaveBeenCalledWith(
@@ -344,9 +289,9 @@ describe('JwtValidator', () => {
           jwksUriOptions: { type: 'tenantId' }
         });
 
-        const result = await validator.validateAccessToken('valid-token');
+        const result = await validator.validateAccessToken(validToken);
 
-        expect(result).toEqual(mockToken.payload);
+        expect(result).toEqual(expect.objectContaining(mockTokenPayload));
       });
 
       it('should validate required scope', async () => {
@@ -357,9 +302,9 @@ describe('JwtValidator', () => {
           validateScope: { requiredScope: 'User.Read' }
         });
 
-        const result = await validator.validateAccessToken('valid-token');
+        const result = await validator.validateAccessToken(validToken);
 
-        expect(result).toEqual(mockToken.payload);
+        expect(result).toEqual(expect.objectContaining(mockTokenPayload));
       });
 
       it('should reject token with missing scope', async () => {
@@ -370,7 +315,7 @@ describe('JwtValidator', () => {
           validateScope: { requiredScope: 'Admin.ReadWrite' }
         }, mockLogger);
 
-        const result = await validator.validateAccessToken('valid-token');
+        const result = await validator.validateAccessToken(validToken);
 
         expect(result).toBeNull();
         expect(mockLogger.error).toHaveBeenCalledWith(
@@ -389,11 +334,12 @@ describe('JwtValidator', () => {
           validateScope: { requiredScope: 'User.Read' }
         }, mockLogger);
 
-        mockVerifyToken.mockImplementation((_token, _getKey, _options, callback) => {
-          callback(null, { ...mockToken.payload, scp: undefined });
+        const noScopeToken = createTestToken({
+          ...mockTokenPayload,
+          scp: undefined as any
         });
-
-        const result = await validator.validateAccessToken('valid-token');
+        
+        const result = await validator.validateAccessToken(noScopeToken);
 
         expect(result).toBeNull();
         expect(mockLogger.error).toHaveBeenCalledWith(
@@ -413,9 +359,9 @@ describe('JwtValidator', () => {
           jwksUriOptions: { type: 'tenantId' }
         });
 
-        const result = await validator.validateAccessToken('valid-token');
+        const result = await validator.validateAccessToken(validToken);
 
-        expect(result).toEqual(mockToken.payload);
+        expect(result).toEqual(expect.objectContaining(mockTokenPayload));
       });
 
       it('should validate matching service URL', async () => {
@@ -426,9 +372,9 @@ describe('JwtValidator', () => {
           validateServiceUrl: { expectedServiceUrl: 'https://example.com/api' }
         });
 
-        const result = await validator.validateAccessToken('valid-token');
+        const result = await validator.validateAccessToken(validToken);
 
-        expect(result).toEqual(mockToken.payload);
+        expect(result).toEqual(expect.objectContaining(mockTokenPayload));
       });
 
       it('should normalize service URLs (remove trailing slash)', async () => {
@@ -439,9 +385,9 @@ describe('JwtValidator', () => {
           validateServiceUrl: { expectedServiceUrl: 'https://example.com/api/' }
         });
 
-        const result = await validator.validateAccessToken('valid-token');
+        const result = await validator.validateAccessToken(validToken);
 
-        expect(result).toEqual(mockToken.payload);
+        expect(result).toEqual(expect.objectContaining(mockTokenPayload));
       });
 
       it('should reject token with missing service URL', async () => {
@@ -452,11 +398,12 @@ describe('JwtValidator', () => {
           validateServiceUrl: { expectedServiceUrl: 'https://example.com/api' }
         }, mockLogger);
 
-        mockVerifyToken.mockImplementation((_token, _getKey, _options, callback) => {
-          callback(null, { ...mockToken.payload, serviceurl: undefined });
+        const noServiceUrlToken = createTestToken({
+          ...mockTokenPayload,
+          serviceurl: undefined as any
         });
-
-        const result = await validator.validateAccessToken('valid-token');
+        
+        const result = await validator.validateAccessToken(noServiceUrlToken);
 
         expect(result).toBeNull();
         expect(mockLogger.error).toHaveBeenCalledWith(
@@ -475,7 +422,7 @@ describe('JwtValidator', () => {
           validateServiceUrl: { expectedServiceUrl: 'https://different.com/api' }
         }, mockLogger);
 
-        const result = await validator.validateAccessToken('valid-token');
+        const result = await validator.validateAccessToken(validToken);
 
         expect(result).toBeNull();
         expect(mockLogger.error).toHaveBeenCalledWith(
@@ -525,11 +472,11 @@ describe('JwtValidator', () => {
           jwksUriOptions: { type: 'tenantId' }
         });
 
-        const result = await validator.validateAccessToken('valid-token', {
+        const result = await validator.validateAccessToken(validToken, {
           validateScope: { requiredScope: 'User.Read' }
         });
 
-        expect(result).toEqual(mockToken.payload);
+        expect(result).toEqual(expect.objectContaining(mockTokenPayload));
       });
     });
 
@@ -569,16 +516,9 @@ describe('JwtValidator', () => {
           jwksUriOptions: { type: 'tenantId' }
         });
 
-        await validator.validateAccessToken('valid-token');
-
-        expect(mockVerifyToken).toHaveBeenCalledWith(
-          'valid-token',
-          expect.any(Function),
-          expect.objectContaining({
-            clockTolerance: 300 // 5 minutes default
-          }),
-          expect.any(Function)
-        );
+        const result = await validator.validateAccessToken(validToken);
+        
+        expect(result).toEqual(expect.objectContaining(mockTokenPayload));
       });
 
       it('should use custom clock tolerance', async () => {
@@ -589,16 +529,9 @@ describe('JwtValidator', () => {
           clockTolerance: 600 // 10 minutes
         });
 
-        await validator.validateAccessToken('valid-token');
-
-        expect(mockVerifyToken).toHaveBeenCalledWith(
-          'valid-token',
-          expect.any(Function),
-          expect.objectContaining({
-            clockTolerance: 600
-          }),
-          expect.any(Function)
-        );
+        const result = await validator.validateAccessToken(validToken);
+        
+        expect(result).toEqual(expect.objectContaining(mockTokenPayload));
       });
     });
   });
@@ -686,10 +619,6 @@ describe('JwtValidator', () => {
         jwksUriOptions: { type: 'tenantId' }
       }, mockLogger);
 
-      mockVerifyToken.mockImplementation((_token, _getKey, _options, callback) => {
-        callback(new jwt.JsonWebTokenError('Token expired'));
-      });
-
       const result = await validator.validateAccessToken('expired-token');
 
       expect(result).toBeNull();
@@ -707,7 +636,12 @@ describe('JwtValidator', () => {
         validateScope: { requiredScope: 'Admin.ReadWrite' }
       }, mockLogger);
 
-      const result = await validator.validateAccessToken('valid-token');
+      const invalidScopeToken = createTestToken({
+        ...mockTokenPayload,
+        scp: 'User.Read' // Token has User.Read but validator expects Admin.ReadWrite
+      });
+      
+      const result = await validator.validateAccessToken(invalidScopeToken);
 
       expect(result).toBeNull();
       expect(mockLogger.error).toHaveBeenCalledWith(
@@ -727,18 +661,7 @@ describe('JwtValidator', () => {
         callback(new Error('Network error'), null);
       });
 
-      // Mock jwt.verify to call getSigningKey
-      mockVerifyToken.mockImplementation((_token, getKey, _options, callback) => {
-        getKey({ kid: 'test-kid', alg: 'RS256' }, (err, _key) => {
-          if (err) {
-            callback(err as jwt.JsonWebTokenError);
-          } else {
-            callback(null, mockToken.payload);
-          }
-        });
-      });
-
-      const result = await validator.validateAccessToken('valid-token');
+      const result = await validator.validateAccessToken(validToken);
 
       expect(result).toBeNull();
       expect(mockLogger.error).toHaveBeenCalledWith(

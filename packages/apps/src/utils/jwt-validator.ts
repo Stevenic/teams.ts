@@ -6,7 +6,6 @@ import { ILogger } from '@microsoft/teams.common';
 import { asserts } from '.';
 
 const DEFAULTS = {
-  validateAudience: ['clientId'] as const,
   clockTolerance: 300 // 5 minutes
 };
 
@@ -19,12 +18,6 @@ export interface IJwtValidationOptions {
    * or a specific tenant ID for single-tenant apps.
    */
   tenantId?: string;
-
-  /**
-   * Optional: Audience validation options
-   * @default ['clientId']
-   */
-  validateAudience?: ('clientId' | 'botFramework')[];
 
   /**
    * JWKS URI options for fetching public keys
@@ -78,7 +71,10 @@ export class JwtValidator {
 
     return new Promise((resolve) => {
       const verifyOptions: jwt.VerifyOptions = {
-        audience: this.getAllowedAudiences(),
+        audience: [
+          this.options.clientId,
+          `api://${this.options.clientId}`,
+        ],
         issuer: undefined,
         ignoreExpiration: false,
         algorithms: ['RS256'],
@@ -161,25 +157,6 @@ export class JwtValidator {
       const signingKey = key?.getPublicKey();
       callback(null, signingKey);
     });
-  };
-
-  private getAllowedAudiences = (): string[] => {
-    const allowedAudiences = [];
-    const audienceOptions = this.options.validateAudience || DEFAULTS.validateAudience;
-    for (const option of audienceOptions) {
-      switch (option) {
-        case 'clientId':
-          allowedAudiences.push(this.options.clientId);
-          allowedAudiences.push(`api://${this.options.clientId}`);
-          break;
-        case 'botFramework':
-          allowedAudiences.push('https://api.botframework.com');
-          break;
-        default:
-          asserts.assertNever(option, `Unknown audience validation option: ${option}`);
-      }
-    }
-    return allowedAudiences;
   };
 
   private validateIssuer = (iss: string | undefined): void => {
