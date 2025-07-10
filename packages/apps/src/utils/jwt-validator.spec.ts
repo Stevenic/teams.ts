@@ -52,7 +52,7 @@ jest.mock('jwks-rsa', () => {
 });
 
 describe('JwtValidator', () => {
-  let mockVerifyToken: jest.Mock;
+  let mockVerifyToken: jest.Mock<void, [string, jwt.GetPublicKeyOrSecret, jwt.VerifyOptions, jwt.VerifyCallback]>;
   let mockDecodeToken: jest.Mock;
 
   beforeEach(() => {
@@ -109,7 +109,7 @@ describe('JwtValidator', () => {
         }, mockLogger);
 
         mockVerifyToken.mockImplementation((_token, _getKey, _options, callback) => {
-          callback(new Error('Invalid token'), null);
+          callback(new jwt.JsonWebTokenError('Invalid token'));
         });
 
         const result = await validator.validateAccessToken('invalid-token');
@@ -142,9 +142,9 @@ describe('JwtValidator', () => {
         });
 
         mockVerifyToken.mockImplementation((_token, getKey, _options, callback) => {
-          getKey({ kid: 'test-kid' }, (err, _key) => {
+          getKey({ kid: 'test-kid', alg: 'RS256' }, (err, _key) => {
             if (err) {
-              callback(err, null);
+              callback(err as jwt.JsonWebTokenError);
             } else {
               callback(null, mockToken.payload);
             }
@@ -687,7 +687,7 @@ describe('JwtValidator', () => {
       }, mockLogger);
 
       mockVerifyToken.mockImplementation((_token, _getKey, _options, callback) => {
-        callback(new Error('Token expired'), null);
+        callback(new jwt.JsonWebTokenError('Token expired'));
       });
 
       const result = await validator.validateAccessToken('expired-token');
@@ -729,9 +729,9 @@ describe('JwtValidator', () => {
 
       // Mock jwt.verify to call getSigningKey
       mockVerifyToken.mockImplementation((_token, getKey, _options, callback) => {
-        getKey({ kid: 'test-kid' }, (err, _key) => {
+        getKey({ kid: 'test-kid', alg: 'RS256' }, (err, _key) => {
           if (err) {
-            callback(err, null);
+            callback(err as jwt.JsonWebTokenError);
           } else {
             callback(null, mockToken.payload);
           }
