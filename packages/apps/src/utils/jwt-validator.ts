@@ -120,6 +120,7 @@ export class JwtValidator {
         {
           const cachedClient = this.jwksCache.get(`${this.options.tenantId}`);
           if (cachedClient) {
+            this.logger?.debug(`Using cached JWKS client for tenant ID: ${this.options.tenantId}`);
             return cachedClient;
           }
           this.jwksCache.set(`${this.options.tenantId}`, jwksRsa({
@@ -133,6 +134,7 @@ export class JwtValidator {
         {
           const cachedClient = this.jwksCache.get(this.options.jwksUriOptions.uri);
           if (cachedClient) {
+            this.logger?.debug(`Using cached JWKS client for URI: ${this.options.jwksUriOptions.uri}`);
             return cachedClient;
           }
           this.jwksCache.set(this.options.jwksUriOptions.uri, jwksRsa({
