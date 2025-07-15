@@ -28,6 +28,8 @@ export interface IConversationUpdateActivity extends IActivity<'conversationUpda
       | 'channelDeleted'
       | 'channelRenamed'
       | 'channelRestored'
+      | 'channelShared'
+      | 'channelUnshared'
       | 'teamArchived'
       | 'teamDeleted'
       | 'teamHardDeleted'
