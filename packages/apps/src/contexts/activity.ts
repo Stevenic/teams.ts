@@ -76,6 +76,11 @@ export interface IActivityContextOptions<T extends Activity = Activity> {
   connectionName: string;
 
   /**
+   * the user token for the activity context
+   */
+  userToken?: string;
+
+  /**
    * extra data
    */
   [key: string]: any;
@@ -121,8 +126,9 @@ export interface IActivityContext<T extends Activity = Activity>
   /**
    * send an activity to the conversation
    * @param activity activity to send
+   * @param conversationRef optional conversation reference to send the activity to. By default, it will use the activity's conversation reference.
    */
-  send: (activity: ActivityLike) => Promise<SentActivity>;
+  send: (activity: ActivityLike, conversationRef?: ConversationReference) => Promise<SentActivity>;
 
   /**
    * reply to the inbound activity
@@ -194,8 +200,8 @@ export class ActivityContext<T extends Activity = Activity>
     }
   }
 
-  async send(activity: ActivityLike) {
-    return await this._plugin.send(toActivityParams(activity), this.ref);
+  async send(activity: ActivityLike, conversationRef?: ConversationReference) {
+    return await this._plugin.send(toActivityParams(activity), conversationRef ?? this.ref);
   }
 
   async reply(activity: ActivityLike) {
@@ -265,6 +271,7 @@ export class ActivityContext<T extends Activity = Activity>
         type: 'message',
         inputHint: 'acceptingInput',
         recipient: this.activity.from,
+        conversation: convo.conversation,
         attachments: [
           cardAttachment('oauth', {
             text: oauthCardText,
@@ -280,7 +287,7 @@ export class ActivityContext<T extends Activity = Activity>
             ],
           }),
         ],
-      }
+      }, convo
     );
   }
 

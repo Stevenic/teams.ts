@@ -34,27 +34,17 @@ export async function $process<TPlugin extends IPlugin>(
   await this.refreshTokens();
 
   let userToken: string | undefined;
-  let appToken =
-    this.tenantTokens.get(token.tenantId || 'common') || this._tokens.graph?.toString();
 
   try {
-    const res = await this.api.users.token.get({
-      channelId: activity.channelId,
-      userId: activity.from.id,
-      connectionName: this.oauth.defaultConnectionName,
-    });
+    userToken = await this.getUserToken(activity.channelId, activity.from.id);
+  } catch (err) {
+    // noop
+  }
 
-    userToken = res.token;
 
-    if (this.credentials && !appToken) {
-      const { access_token } = await this.api.bots.token.getGraph({
-        ...this.credentials,
-        tenantId: event.token.tenantId,
-      });
-
-      appToken = access_token;
-      this.tenantTokens.set(token.tenantId || 'common', access_token);
-    }
+  let appToken: string | undefined;
+  try {
+    appToken = await this.getOrRefreshTenantToken(activity.conversation.tenantId ?? 'common');
   } catch (err) {
     // noop
   }
@@ -122,6 +112,7 @@ export async function $process<TPlugin extends IPlugin>(
     appId: this.id || '',
     log: this.log,
     tokens: this.tokens,
+    userToken: userToken,
     ref,
     storage: this.storage,
     isSignedIn: !!userToken,
@@ -133,11 +124,11 @@ export async function $process<TPlugin extends IPlugin>(
   }
 
   const send = context.send.bind(context);
-  context.send = async (activity: ActivityLike) => {
-    const res = await send(activity);
+  context.send = async (activity: ActivityLike, conversationRef?: ConversationReference) => {
+    const res = await send(activity, conversationRef);
 
     this.onActivitySent(sender, {
-      ...ref,
+      ...(conversationRef ?? ref),
       sender,
       activity: res,
     });

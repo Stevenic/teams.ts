@@ -1,5 +1,19 @@
 # @microsoft/teams.config
 
+## 2.0.0-preview.9
+
+### Patch Changes
+
+- A number of auth related fixes, ATK fixes due to multi-tenant deprecation, and a streaming fix
+
+## 2.0.0-preview.8
+
+### Patch Changes
+
+- Variety of security fixes.
+  Now every incoming request to the server is validated to ensure that it is coming from a trusted source.
+  Other minor fixes and improvements.
+
 ## 2.0.0-preview.7
 
 ### Patch Changes

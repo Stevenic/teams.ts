@@ -8,15 +8,17 @@ import {
   ActivityParams,
   Client,
   ConversationReference,
-  IToken,
-  JsonWebToken,
+  Credentials,
+  IToken
 } from '@microsoft/teams.api';
+
 import { ILogger } from '@microsoft/teams.common';
 import * as $http from '@microsoft/teams.common/http';
 
 import pkg from '../../../package.json';
 import { IActivityEvent, IErrorEvent } from '../../events';
 import { Manifest } from '../../manifest';
+import { JwtValidatedRequest, withJwtValidation } from '../../middleware/jwt-validation-middleware';
 import {
   Dependency,
   Event,
@@ -28,6 +30,7 @@ import {
   Logger,
   Plugin,
 } from '../../types';
+
 
 import { HttpStream } from './stream';
 
@@ -48,6 +51,9 @@ export class HttpPlugin implements ISender {
 
   @Dependency()
   readonly manifest!: Partial<Manifest>;
+
+  @Dependency({ optional: true })
+  readonly credentials?: Credentials;
 
   @Dependency({ optional: true })
   readonly botToken?: () => IToken;
@@ -81,8 +87,10 @@ export class HttpPlugin implements ISender {
 
   protected express: express.Application;
   protected pending: Record<string, express.Response> = {};
+  protected skipAuth: boolean;
 
-  constructor(server?: http.Server) {
+  constructor(server?: http.Server, options?: { skipAuth?: boolean }) {
+    this.skipAuth = options?.skipAuth ?? false;
     this.express = express();
     this._server = server || http.createServer();
     this._server.on('request', this.express);
@@ -96,7 +104,6 @@ export class HttpPlugin implements ISender {
 
     this.express.use(cors());
     this.express.use('/api*', express.json());
-    this.express.post('/api/messages', this.onRequest.bind(this));
   }
 
   /**
@@ -109,8 +116,22 @@ export class HttpPlugin implements ISender {
     return this;
   }
 
+  onInit() {
+    const messageHandlers = [this.onRequest.bind(this)];
+    if (!this.skipAuth) {
+      // Setup /api/messages route with JWT validation middleware
+      const jwtMiddleware = withJwtValidation({
+        credentials: this.credentials,
+        logger: this.logger
+      });
+      messageHandlers.unshift(jwtMiddleware);
+    }
+    this.express.post('/api/messages', ...messageHandlers);
+  }
+
   async onStart({ port }: IPluginStartEvent) {
     this._port = port;
+
     this.express.get('/', (_, res) => {
       res.send(this.manifest);
     });
@@ -198,34 +219,29 @@ export class HttpPlugin implements ISender {
       this.logger
     );
   }
-
   /**
    * validates an incoming http request
    * @param req the incoming http request
    * @param res the http response
    */
   protected async onRequest(
-    req: express.Request,
+    req: JwtValidatedRequest,
     res: express.Response,
     _next: express.NextFunction
   ) {
-    const authorization = req.headers.authorization?.replace('Bearer ', '');
-
-    if (!authorization && process.env.NODE_ENV !== 'local') {
-      res.status(401).send('unauthorized');
-      return;
-    }
-
     const activity: Activity = req.body;
-    const token: IToken = authorization
-      ? new JsonWebToken(authorization)
-      : {
-          appId: '',
-          from: 'azure',
-          fromId: '',
-          serviceUrl: activity.serviceUrl || '',
-          isExpired: () => false,
-        };
+    let token: IToken | undefined;
+    if (req.validatedToken) {
+      token = req.validatedToken;
+    } else {
+      token = {
+        appId: '',
+        from: 'azure',
+        fromId: '',
+        serviceUrl: activity.serviceUrl || '',
+        isExpired: () => false,
+      };
+    }
 
     this.pending[activity.id] = res;
     this.$onActivity({

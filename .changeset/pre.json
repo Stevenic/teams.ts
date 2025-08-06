@@ -32,6 +32,7 @@
     "@tests/a2a": "0.0.0"
   },
   "changesets": [
+    "chatty-numbers-knock",
     "evil-cycles-change",
     "four-bats-enter",
     "giant-swans-build",
@@ -39,6 +40,7 @@
     "new-olives-rest",
     "smooth-hoops-float",
     "social-ghosts-move",
+    "strong-dolls-pay",
     "violet-friends-march"
   ]
 }

@@ -2,6 +2,7 @@ import { AxiosError } from 'axios';
 
 import {
   ActivityLike,
+  ChannelID,
   ConversationReference,
   Credentials,
   IToken,
@@ -79,6 +80,11 @@ export type AppOptions<TPlugin extends IPlugin> = Partial<Credentials> & {
    * Activity Options
    */
   readonly activity?: AppActivityOptions;
+
+  /**
+   * Skip authentication for HTTP requests
+   */
+  readonly skipAuth?: boolean;
 };
 
 export type AppActivityOptions = {
@@ -266,10 +272,12 @@ export class App<TPlugin extends IPlugin = IPlugin> {
     }) as HttpPlugin | undefined;
 
     if (!httpPlugin) {
-      httpPlugin = new HttpPlugin();
+      httpPlugin = new HttpPlugin(undefined, { skipAuth: this.options.skipAuth });
       // Casting to any here because a default HttpPlugin is not assignable to TPlugin
       // without a silly level of indirection.
       plugins.unshift(httpPlugin as any);
+    } else if (this.options.skipAuth) {
+      this.log.warn('skipAuth option has no effect when a custom HTTP plugin is provided. Configure authentication on the plugin directly.');
     }
 
     this.http = httpPlugin;
@@ -512,5 +520,36 @@ export class App<TPlugin extends IPlugin = IPlugin> {
 
     const graphResponse = await this.api.bots.token.getGraph(this.credentials);
     this._tokens.graph = new JsonWebToken(graphResponse.access_token);
+  }
+
+  protected async getUserToken(
+    channelId: ChannelID,
+    userId: string
+  ) {
+    const res = await this.api.users.token.get({
+      channelId,
+      userId,
+      connectionName: this.oauth.defaultConnectionName,
+    });
+
+    return res.token;
+  }
+
+  protected async getOrRefreshTenantToken(tenantId: string) {
+    let appToken =
+      this.tenantTokens.get(tenantId);
+    if (this.credentials && !this.tenantTokens.get(tenantId)) {
+      const { access_token } = await this.api.bots.token.getGraph({
+        ...this.credentials,
+        tenantId: tenantId,
+      });
+
+      this.log.debug(`refreshing tenant token for ${tenantId}`);
+
+      appToken = access_token;
+      this.tenantTokens.set(tenantId, access_token);
+    }
+
+    return appToken;
   }
 }
