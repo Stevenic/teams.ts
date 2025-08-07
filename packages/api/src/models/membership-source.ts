@@ -26,7 +26,7 @@ export type MembershipSource = {
   teamGroupId: string
 
   /**
-   * Optional. The tenant ID for the user.
+   * The tenant ID for the user.
    */
-  tenantId?: string
+  tenantId: string
 };
